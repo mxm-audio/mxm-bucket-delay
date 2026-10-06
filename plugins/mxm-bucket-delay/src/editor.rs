@@ -787,7 +787,8 @@ mod tests {
 
     /// The window's floor is **one card**, not three, because the cards wrap. A window minimum
     /// exists to stop a card being drawn narrower than its own controls, and that is one card —
-    /// `apps/mxm-layout-lab`'s finding, and the rule `mxm_ui::flow` is built on.
+    /// `apps/mxm-layout-lab`'s finding (in the private archive), and the rule `mxm_ui::flow` is
+    /// built on.
     #[test]
     fn the_minimum_window_holds_the_widest_card() {
         let cards: Vec<_> = test_items(&MxmBucketDelayParams::default())

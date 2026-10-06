@@ -35,9 +35,9 @@
 //! A parked, silent instance whose `Feedback` — or a tap fader, or `Return` — is raised into the
 //! self-starting region has to start singing on the strength of a parameter change alone. The wake
 //! condition is **the loop gain crossing the threshold**, whichever control moved it, and this
-//! plugin therefore never skips a block while the gain is in that region. `apps/mxm-player`'s FX
-//! chain had this exact defect and fixed it; the product does not rely on a host being more
-//! generous than the player was.
+//! plugin therefore never skips a block while the gain is in that region. MXM Player's FX chain
+//! (`apps/mxm-player`, in mxm-player) had this exact defect and fixed it; the product does not
+//! rely on a host being more generous than the player was.
 //!
 //! # Two layouts
 //!

@@ -420,8 +420,8 @@ impl MxmBucketDelayParams {
     ///
     /// Here rather than in the plugin because the *editor* needs the same answer: the constellation
     /// is drawn at the delay in force, and the panel names the subdivision `Time` is selecting.
-    /// `plugins/AGENTS.md` records the same rule for the loop gain — two copies of a law like this
-    /// are free to disagree, and the disagreement is silent.
+    /// `plugins/mxm-bucket-delay/AGENTS.md` records the same rule for the loop gain — two copies of
+    /// a law like this are free to disagree, and the disagreement is silent.
     pub fn target_time(&self, tempo: Option<f64>) -> f32 {
         // With no tempo, a synced delay is the knob again: one that fell silent in a host with no
         // transport would be broken rather than honest.
@@ -713,8 +713,9 @@ mod tests {
         }
     }
 
-    /// One trip through the host, as `vendor/nice-plug`'s CLAP wrapper makes it: the CLAP value is
-    /// the normalized value times the step count, the text carries the unit, and the parsed text
+    /// One trip through the host, as nice-plug's CLAP wrapper makes it (`vendor/nice-plug` before
+    /// the split; the mxm-audio/nice-plug fork since 2026-10-06): the CLAP value is the
+    /// normalized value times the step count, the text carries the unit, and the parsed text
     /// comes back through the parameter's normalized conversion before it is formatted again.
     /// Returns the failure, if the text changed or did not parse.
     ///

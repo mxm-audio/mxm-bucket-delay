@@ -90,7 +90,7 @@ fn dragging_every_control_through_the_shipped_panel_is_survivable() {
         // **Fixed steps, never `run`.** The panel requests a repaint every frame — the
         // constellation dims with a decaying tail, which is not something egui can see coming — so
         // "settled" never arrives and `run` gives up at its step cap. `apps/mxm-player`'s own
-        // harness records the same rule for the same reason.
+        // harness (in mxm-player) records the same rule for the same reason.
         harness.run_steps(3);
 
         // The panel is drawn; now sweep a pointer across the whole of it, pressing and dragging,

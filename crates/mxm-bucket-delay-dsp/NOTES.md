@@ -187,7 +187,7 @@ shipped graph, checkable with `cargo tree -e normal,build`, and `[dependencies]`
 
 `[dev-dependencies]` holds **`mxm-measure`**, the collection's measurement rulers — zero dependencies
 at this same floor, reaching only tests and `examples/`, never a shipped `.clap`.
-[`../mxm-measure/AGENTS.md`](https://github.com/mxm-audio/mxm-kit/blob/main/crates/mxm-measure/AGENTS.md)'s verification section checks that rather than
+mxm-kit's [`crates/mxm-measure/AGENTS.md`](https://github.com/mxm-audio/mxm-kit/blob/main/crates/mxm-measure/AGENTS.md)'s verification section checks that rather than
 asserting it.
 
 `C64` and `Rng` are written here for the same reason and are the precedent. No `nice_plug::`

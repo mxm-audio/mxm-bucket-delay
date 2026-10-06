@@ -1,6 +1,6 @@
 # mxm-bucket-delay — UI design brief
 
-Required by `MXM_DESIGN_SYSTEM.md` §14. Answers the ten questions in order, then records the
+Required by mxm-kit's [`MXM_DESIGN_SYSTEM.md`](https://github.com/mxm-audio/mxm-kit/blob/main/docs/MXM_DESIGN_SYSTEM.md) §14. Answers the ten questions in order, then records the
 deliberate deviations.
 
 **Plugin:** a bucket brigade delay. Audio in, audio out; no notes. Product id
@@ -293,7 +293,8 @@ A second state worth showing the same way: **out of spec**, when Time has pushed
   load-bearing decision and the easiest one to get wrong.
 - **Feedback's calibration follows `mxm-folded-spring`**: measured per line, singing in the last
   tenth, and stopping when the control comes down. The spring's three rounds of that are written up
-  in its own `AGENTS.md`; do not re-derive them.
+  in its own `AGENTS.md`; do not re-derive them. *Since the split (2026-10-06):* that write-up is
+  mxm-folded-spring's [`plugins/mxm-folded-spring/NOTES.md` § Feedback](https://github.com/mxm-audio/mxm-folded-spring/blob/main/plugins/mxm-folded-spring/NOTES.md#feedback-is-a-path-the-tank-did-not-have-and-it-is-a-declared-departure).
 - **One number is not settled.** Raffel & Smith's `THD = 1.01^(N/1024) − 1` predicts 4.06 % at 4096
   stages where Panasonic print 1 % typical and 2.5 % maximum. The research page has it in the
   unverified list. Take the catalogue's figures; the law's *shape* is right and its constant is not.

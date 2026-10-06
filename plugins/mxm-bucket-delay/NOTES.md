@@ -84,8 +84,9 @@ that was accepted.
 - **Self-oscillation is `Normal`, not a large `n`.** A tail may be truncated by a host; a generator
   must not be.
 - **The plugin never skips a block while the loop gain is in the self-starting region**, so a
-  parked, silent instance can be woken by a parameter alone. `apps/mxm-player`'s FX chain had this
-  defect and fixed it; the product does not rely on a host being more generous than the player was.
+  parked, silent instance can be woken by a parameter alone. MXM Player's FX chain
+  (`apps/mxm-player`, in mxm-player) had this defect and fixed it; the product does not rely on a
+  host being more generous than the player was.
 
 `loop_gain_of` lives in the DSP and is called from both sides. Two copies of that formula would be
 free to disagree about when the line sings.
@@ -198,7 +199,7 @@ window opens at the quarter-4K budget hugged to the three on one row (`editor::R
 and audio are unchanged. Existing painted-label/display/fit tests remain; native/DPI and DAW gates
 are separate.
 
-**Every card is a `mxm_ui::tree`** (`crates/ui/AGENTS.md`, *A card body as data*).
+**Every card is a `mxm_ui::tree`** (mxm-kit's [`crates/ui/NOTES.md`](https://github.com/mxm-audio/mxm-kit/blob/main/crates/ui/NOTES.md#a-card-body-as-data--tree), *A card body as data*).
 `sections::card` describes each body once — the six taps, Feedback and Mix, and Bias, Wobble and
 Rate as the collection's knob rows (`mxm_ui::tree::knob_row`), Time and Spread at the collection's
 knob column (`mxm_ui::control::knob_column`) beside what stands with them, the switches
@@ -273,4 +274,5 @@ It builds the real chain — `mxm-mono-01` into this effect — through the play
 asserts the four things §7 asks of it: the delay is reached and its repeats arrive a delay time
 later, **off returns the dry to the bit**, the graph reaches exact silence, and an effect switched
 back on after a gap starts from silence. `apps/mxm-player/AGENTS.md`'s *Auditioning a plugin here*
-is the general form.
+is the general form; since the split it is mxm-player's
+[`apps/mxm-player/NOTES.md`](https://github.com/mxm-audio/mxm-player/blob/main/apps/mxm-player/NOTES.md#auditioning-a-plugin-here-with-no-window-and-no-sound-card).

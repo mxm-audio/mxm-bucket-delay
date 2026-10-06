@@ -102,6 +102,6 @@ cargo xtask bundle mxm-bucket-delay --release   # -> target/bundled/mxm-bucket-d
 
 ## Licence
 
-MIT — see [`LICENSE`](LICENSE). All code here is original. The two published models it follows are
-cited in the source; no code from their authors, and none from any third-party implementation, is
-used.
+GPL-3.0-or-later — see the repository's [`LICENSE`](../../LICENSE) at its root. All code here is
+original. The two published models it follows are cited in the source; no code from their
+authors, and none from any third-party implementation, is used.
