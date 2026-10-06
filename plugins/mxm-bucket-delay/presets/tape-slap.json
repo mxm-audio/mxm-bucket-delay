@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "plugin": "dk.mxm.mxm-bucket-delay",
+  "name": "Tape slap",
+  "category": "fx",
+  "_comment": "`v` is the value and is authoritative. `text` is this plugin's own formatting of it, kept so the file can be read, and is never loaded.",
+  "params": {
+    "bias": {
+      "v": 0.65,
+      "text": "+30 %"
+    },
+    "change": {
+      "v": 0.0,
+      "text": "Glide"
+    },
+    "feedback": {
+      "v": 0.28,
+      "text": "28 %"
+    },
+    "filter": {
+      "v": 0.0,
+      "text": "Fixed"
+    },
+    "line": {
+      "v": 0.6666667,
+      "text": "4096"
+    },
+    "mix": {
+      "v": 0.42,
+      "text": "42 %"
+    },
+    "rate": {
+      "v": 0.25052246,
+      "text": "0.800 Hz"
+    },
+    "ratesync": {
+      "v": 0.0,
+      "text": "Off"
+    },
+    "return": {
+      "v": 1.0,
+      "text": "Tail"
+    },
+    "reverse": {
+      "v": 0.0,
+      "text": "Forward"
+    },
+    "routing": {
+      "v": 0.5,
+      "text": "Stereo"
+    },
+    "spread": {
+      "v": 0.5,
+      "text": "1.00×"
+    },
+    "sync": {
+      "v": 0.0,
+      "text": "Off"
+    },
+    "tap1": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "tap2": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "tap3": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "tap4": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "tap5": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "tap6": {
+      "v": 1.0,
+      "text": "100 %"
+    },
+    "time": {
+      "v": 0.35926977,
+      "text": "120 ms"
+    },
+    "wobble": {
+      "v": 0.14,
+      "text": "14 %"
+    }
+  },
+  "state": null
+}

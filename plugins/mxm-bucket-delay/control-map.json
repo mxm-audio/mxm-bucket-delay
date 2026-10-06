@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "_comment": [
+    "Which of mxm-bucket-delay's parameters fill the collection's control roles.",
+    "Roles come from docs/MXM_CONTROL_MAP.md, which is normative; parameters are named by",
+    "their permanent string id, never by display name.",
+    "",
+    "`fx.delay` already existed and this plugin's Mix is the same quantity - how much delay is",
+    "in the mix - so it fills the role rather than minting one. That is mxm-folded-spring's",
+    "precedent, and it is what makes the arithmetic below work.",
+    "",
+    "The other seven are new, and they are a NEW PAGE rather than additions to the Effects page,",
+    "which mxm-folded-spring's tank filled to its last slot. Seven roles, eight slots, and the",
+    "eighth is left free deliberately: an empty slot is inert, and a page with room in it is worth",
+    "more than a slot spent to fill it.",
+    "",
+    "Thirteen parameters are deliberately unmapped: the six tap faders, Return, Filter, Routing,",
+    "Reverse, Sync, Change and Rate sync. They are the shape you set and store in a preset, not the controls you",
+    "reach for while it plays - and that split is what makes one page enough.",
+    "",
+    "Division was a twelfth until 2026-09-06, when Time took over selecting the subdivision and",
+    "the parameter went away. fx.delay_time therefore drives the sync division too, which is what",
+    "a single Time role should always have meant."
+  ],
+  "instruments": [
+    {
+      "clap_id": "dk.mxm.mxm-bucket-delay",
+      "name": "mxm-bucket-delay",
+      "params": {
+        "fx.delay": "mix",
+        "fx.delay_time": "time",
+        "fx.delay_feedback": "feedback",
+        "fx.delay_line": "line",
+        "fx.delay_spread": "spread",
+        "fx.delay_bias": "bias",
+        "fx.delay_wobble": "wobble",
+        "fx.delay_wobble_rate": "rate"
+      }
+    }
+  ]
+}

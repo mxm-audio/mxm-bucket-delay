@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "plugin": "dk.mxm.mxm-bucket-delay",
+  "name": "Dark room",
+  "category": "fx",
+  "_comment": "`v` is the value and is authoritative. `text` is this plugin's own formatting of it, kept so the file can be read, and is never loaded.",
+  "params": {
+    "bias": {
+      "v": 0.5,
+      "text": "Trimmed"
+    },
+    "change": {
+      "v": 0.0,
+      "text": "Glide"
+    },
+    "feedback": {
+      "v": 0.74,
+      "text": "74 %"
+    },
+    "filter": {
+      "v": 0.0,
+      "text": "Fixed"
+    },
+    "line": {
+      "v": 1.0,
+      "text": "8192"
+    },
+    "mix": {
+      "v": 0.42,
+      "text": "42 %"
+    },
+    "rate": {
+      "v": 0.17113943,
+      "text": "0.400 Hz"
+    },
+    "ratesync": {
+      "v": 0.0,
+      "text": "Off"
+    },
+    "return": {
+      "v": 0.0,
+      "text": "Mix"
+    },
+    "reverse": {
+      "v": 0.0,
+      "text": "Forward"
+    },
+    "routing": {
+      "v": 0.5,
+      "text": "Stereo"
+    },
+    "spread": {
+      "v": 0.5,
+      "text": "1.00×"
+    },
+    "sync": {
+      "v": 0.0,
+      "text": "Off"
+    },
+    "tap1": {
+      "v": 1.0,
+      "text": "100 %"
+    },
+    "tap2": {
+      "v": 0.90900004,
+      "text": "91 %"
+    },
+    "tap3": {
+      "v": 0.833,
+      "text": "83 %"
+    },
+    "tap4": {
+      "v": 0.769,
+      "text": "77 %"
+    },
+    "tap5": {
+      "v": 0.714,
+      "text": "71 %"
+    },
+    "tap6": {
+      "v": 0.667,
+      "text": "67 %"
+    },
+    "time": {
+      "v": 0.46631157,
+      "text": "240 ms"
+    },
+    "wobble": {
+      "v": 0.0,
+      "text": "0 %"
+    }
+  },
+  "state": null
+}

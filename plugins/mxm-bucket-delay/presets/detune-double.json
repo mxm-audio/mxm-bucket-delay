@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "plugin": "dk.mxm.mxm-bucket-delay",
+  "name": "Detune double",
+  "category": "fx",
+  "_comment": "`v` is the value and is authoritative. `text` is this plugin's own formatting of it, kept so the file can be read, and is never loaded.",
+  "params": {
+    "bias": {
+      "v": 0.5,
+      "text": "Trimmed"
+    },
+    "change": {
+      "v": 0.0,
+      "text": "Glide"
+    },
+    "feedback": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "filter": {
+      "v": 1.0,
+      "text": "Tracking"
+    },
+    "line": {
+      "v": 0.0,
+      "text": "1024"
+    },
+    "mix": {
+      "v": 0.45,
+      "text": "45 %"
+    },
+    "rate": {
+      "v": 0.14463921,
+      "text": "0.300 Hz"
+    },
+    "ratesync": {
+      "v": 0.0,
+      "text": "Off"
+    },
+    "return": {
+      "v": 1.0,
+      "text": "Tail"
+    },
+    "reverse": {
+      "v": 0.0,
+      "text": "Forward"
+    },
+    "routing": {
+      "v": 0.5,
+      "text": "Stereo"
+    },
+    "spread": {
+      "v": 0.5,
+      "text": "1.00×"
+    },
+    "sync": {
+      "v": 0.0,
+      "text": "Off"
+    },
+    "tap1": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "tap2": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "tap3": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "tap4": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "tap5": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "tap6": {
+      "v": 1.0,
+      "text": "100 %"
+    },
+    "time": {
+      "v": 0.16414496,
+      "text": "22 ms"
+    },
+    "wobble": {
+      "v": 0.12,
+      "text": "12 %"
+    }
+  },
+  "state": null
+}

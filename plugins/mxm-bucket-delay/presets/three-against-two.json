@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "plugin": "dk.mxm.mxm-bucket-delay",
+  "name": "Three against two",
+  "category": "fx",
+  "_comment": "`v` is the value and is authoritative. `text` is this plugin's own formatting of it, kept so the file can be read, and is never loaded.",
+  "params": {
+    "bias": {
+      "v": 0.5,
+      "text": "Trimmed"
+    },
+    "change": {
+      "v": 1.0,
+      "text": "Snap"
+    },
+    "feedback": {
+      "v": 0.58,
+      "text": "58 %"
+    },
+    "filter": {
+      "v": 0.0,
+      "text": "Fixed"
+    },
+    "line": {
+      "v": 0.6666667,
+      "text": "4096"
+    },
+    "mix": {
+      "v": 0.45,
+      "text": "45 %"
+    },
+    "rate": {
+      "v": 0.17113943,
+      "text": "0.400 Hz"
+    },
+    "ratesync": {
+      "v": 0.0,
+      "text": "Off"
+    },
+    "return": {
+      "v": 0.0,
+      "text": "Mix"
+    },
+    "reverse": {
+      "v": 0.0,
+      "text": "Forward"
+    },
+    "routing": {
+      "v": 0.5,
+      "text": "Stereo"
+    },
+    "spread": {
+      "v": 0.5,
+      "text": "1.00×"
+    },
+    "sync": {
+      "v": 1.0,
+      "text": "On"
+    },
+    "tap1": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "tap2": {
+      "v": 0.7,
+      "text": "70 %"
+    },
+    "tap3": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "tap4": {
+      "v": 0.85,
+      "text": "85 %"
+    },
+    "tap5": {
+      "v": 0.0,
+      "text": "0 %"
+    },
+    "tap6": {
+      "v": 1.0,
+      "text": "100 %"
+    },
+    "time": {
+      "v": 0.29990605,
+      "text": "76 ms"
+    },
+    "wobble": {
+      "v": 0.0,
+      "text": "0 %"
+    }
+  },
+  "state": null
+}

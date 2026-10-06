@@ -1,0 +1,16 @@
+[package]
+name = "mxm-bucket-delay-dsp"
+description = "DSP for mxm-bucket-delay: a bucket brigade device and the circuit around it"
+version.workspace = true
+edition.workspace = true
+# No runtime dependencies: genuinely portable, so it does NOT inherit the 1.95 GUI floor.
+rust-version = "1.87"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+
+# Measurement rulers for the tests only. Zero dependencies at this same floor.
+[dev-dependencies]
+mxm-measure.workspace = true

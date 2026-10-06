@@ -1,0 +1,40 @@
+[package]
+name = "mxm-bucket-delay"
+description = "A bucket brigade delay, from the device rather than a box: six taps, four chips and a clock that is the only time control"
+version.workspace = true
+edition.workspace = true
+# The editor pulls in egui, which declares 1.95. `mxm-bucket-delay-dsp` stays lower and must not be
+# dragged up with it — the plugin depends on the DSP, never the reverse.
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lib]
+# `lib` as well as `cdylib`: the shipped artifact is the `cdylib`. The `lib` is what lets a test or
+# a standalone harness link the plugin. **Do not enable nice-plug's `standalone` feature here** —
+# it pulls in cpal and JACK, and Cargo's feature unification would put them in the shipped `.clap`.
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+nice-plug.workspace = true
+nice-plug-egui.workspace = true
+mxm-ui.workspace = true
+mxm-preset.workspace = true
+mxm-tempo.workspace = true
+egui.workspace = true
+# The device. This product's own DSP crate, named for the product rather than for the chip: a
+# shared bucket-brigade API is earned by a second honest implementation asking for it, not by
+# predicting one.
+mxm-bucket-delay-dsp.workspace = true
+
+[dev-dependencies]
+# The collection's shared headless checks (`crates/mxm-plugin-test`).
+mxm-plugin-test.workspace = true
+# Drives the shipped panel with real pointer events, so a drag on a control exercises the gesture
+# path a paint-only test cannot reach. `mxm-mono-00` uses the same pair. `wgpu` renders a frame to
+# pixels for the layout-tree review pictures (`mxm_plugin_test::tree_checks`,
+# `editor::tests::tree_pictures`). Test-only: nothing here reaches the bundle.
+egui_kittest = { version = "=0.36.1", features = ["wgpu"] }
+image = { version = "=0.25.9", default-features = false, features = ["png"] }
+kittest = "=0.4.0"
