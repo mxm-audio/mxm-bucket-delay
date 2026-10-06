@@ -9,10 +9,8 @@ the filters either side of it, the compander, the nonlinearity and the noise —
 routing and the transitions that make a product out of them. Free of any plugin-framework types, so
 the whole signal path is testable with `cargo test` and no host involved.
 
-**The first DSP crate in this collection that is not an instrument's.** Both sibling effects depend
-on the synth whose circuit they came from; this one has nothing above it, which is a real
-simplification: there is no golden-digest obligation against an instrument's render, and no
-equivalence burden to invent an analogue of.
+No instrument sits above it, so no golden digest constrains it. The history, measurements and
+reasoning behind each contract are in [NOTES.md](NOTES.md), linked from each section.
 
 # Ownership
 
@@ -23,222 +21,127 @@ Does **not** own parameter ranges, curves, smoothing or the control mapping — 
 [`plugins/mxm-bucket-delay/`](../../plugins/mxm-bucket-delay/AGENTS.md). This crate takes plain
 values and a sample rate.
 
-**Named for the product, not for the device.** `mxm-bbd-dsp` was proposed and rejected: justifying a
-name by reuse — the JUNO chorus is a bucket brigade, a flanger would be — is the pre-generalisation
-the root forbids by name. A shared bucket-brigade API is earned by a second honest implementation
-demanding it, against two real call sites, not by predicting one.
+**Named for the product, not the device** (no `mxm-bbd-dsp`): a shared bucket-brigade API waits for
+a second honest implementation and two real call sites ([NOTES.md](NOTES.md#why-the-crate-is-named-for-the-product)).
 
 # Local Contracts
 
-## Which published model each part follows, and why the two disagree
+## Sources: the papers' equations, nothing else
 
-Both are implemented **from the papers' equations**. No code from either author, and none from any
-third-party implementation, is used or consulted — neither paper carries a licence grant, and the
-one reference implementation that exists carries none either. The plan's §8 records that gate.
-
+- **From the papers' equations only.** No code from either author or any third-party
+  implementation is used or consulted: none carries a licence grant. The plan's §8 records the gate
+  ([NOTES.md](NOTES.md#which-published-model-each-part-follows-and-why-the-two-disagree)).
 - **The line and its resampling: Holters & Parker, DAFx-18.** A fixed-length line at its own clock
-  rate, with the conversion between the host rate and the clock rate done by the circuit's own input
-  and output filters rather than by an interpolator. Three things fall out for free that a model
-  built the other way has to add afterwards: the pitch bend on a time change, both aliasing
-  mechanisms, and the output hold that accounts for most of the datasheets' unexplained insertion
-  gain. **Raffel & Smith's interpolated line was rejected**: for an echo whose clock is the control,
-  an interpolator sits exactly where the tone lives, in series with the reconstruction filter it
-  would be modelling.
+  rate; the rate conversion is the circuit's own input and output filters, never an interpolator.
 - **The components: Raffel & Smith, DAFx-10.** The compander's structure, the filter topology and
   the polynomial nonlinearity.
 
-## The two-phase clock is where the delay law's factor of two lives
+## The clock and the line
 
-`STAGES_PER_CLOCK_PERIOD = 2`, and it is a named constant rather than a bare `/ 2` because the first
-implementation here ticked one stage per period. Every delay came out at exactly twice the law, and
-**every test that did not measure against the catalogue passed**. The line is indexed in clock
-periods; a tap `s` stages along comes back `s / 2` periods later.
+- **`STAGES_PER_CLOCK_PERIOD = 2` stays a named constant**, never a bare `/ 2`. The line is indexed
+  in clock periods; a tap `s` stages along comes back `s / 2` periods later.
+- **`BUFFER_SLOTS` is `MAX_TICKS + 1`**: the write happens before the taps are read
+  ([NOTES.md](NOTES.md#the-two-phase-clock-is-where-the-delay-laws-factor-of-two-lives)).
+- **`Line::delay_bounds` is derived, not chosen**: `[N / 2f_max, N / 2f_min]`, the delay law against
+  `CLOCK_MIN_HZ` and `CLOCK_MAX_HZ`. The plugin uses it for which tempo subdivisions are reachable
+  ([NOTES.md](NOTES.md#linedelay_bounds-is-the-chips-own-reach-and-the-parameter-layer-needs-it)).
 
-`BUFFER_SLOTS` is `MAX_TICKS + 1` for the same kind of reason: the write happens before the taps are
-read, so a tap at the full length would wrap onto the slot just written and return the input
-undelayed. That defect was invisible on three of the four lines.
+## Where the literature is not followed
 
-## `Line::delay_bounds` is the chip's own reach, and the parameter layer needs it
+- **THD is the catalogue's figure** (`Line::thd_typical`), not Raffel & Smith's law.
+- **The catalogue's THD order is not monotonic and must not be "fixed".**
+  `Line::signal_to_noise_db` *is* monotonic, and the product's premise rests on that order
+  ([NOTES.md](NOTES.md#one-number-from-the-literature-is-not-used)).
+- **The clamp is taken at the polynomial's own endpoints** (`1 − b`, `−1 + b`), not at the paper's
+  clipping cases, which step and are not monotonic
+  ([NOTES.md](NOTES.md#one-declared-correction-to-raffel--smith)).
+- **The device's input limit is clamped on the input**, at full scale, never on the drive.
 
-`[N / 2f_max, N / 2f_min]` — the delay law against [`CLOCK_MIN_HZ`] and [`CLOCK_MAX_HZ`], so it is
-derived rather than chosen. It exists because a question the plugin has to answer cannot be answered
-without it: **which tempo subdivisions are reachable**. `Time` selects the subdivision when `Sync`
-follows the host, and the 1024-stage part cannot hold a half note at 120 bpm at any clock the MN3101
-generates — so a control offering one would be a delay that claims to be in time and is not.
+## The filters' alignment is chosen
 
-## One number from the literature is not used
-
-Raffel & Smith's `THD = 1.01^(N/1024) − 1` predicts about 4 % at 4096 stages where Panasonic's own
-catalogue prints 1 % typical and 2.5 % maximum. **The catalogue's figures are used**
-(`Line::thd_typical`). The law's *shape* — distortion compounding with stage count — is right and is
-the useful part; its constant is not established, and adopting it would bake a fourfold error into
-the product's most audible quantity.
-
-**The catalogue's THD order is not monotonic and must not be "fixed".** The MN3011 is a low-noise
-part at 0.4 % where the shorter MN3007 is 0.5 %. Longer is dirtier across the family as a whole;
-the six-tap part is the exception the manufacturer built. `Line::signal_to_noise_db` *is* monotonic,
-and that is the ordering the product's premise rests on.
-
-## One declared correction to Raffel & Smith
-
-Their clipping cases, `1 − a − b` and `−1 − a + b`, do not meet their own polynomial, which reaches
-`1 − b` and `−1 + b` at `|x| = 1`. The gap is exactly `a` — the constant the polynomial adds to keep
-its output averaging around zero — so the clipping cases read as having been written before that
-constant was included. Taken literally the curve steps by 0.125 and is not monotonic, which this
-collection's numeric contract forbids. **The clamp is taken at the polynomial's own endpoints**,
-which is the reading that makes the paper's own sentence about a smooth transition true.
-
-The device's own input limit is clamped **on the input**, at full scale, not on the drive: every
-part specifies a `V_i(max)` and clips there whatever its distortion figure is. Letting the clamp
-move with the drive leaves the line's output bound proportional to `1/g`, which six laps of a loop
-later is how a model blows up.
-
-## The filters' alignment is chosen, and the reason is recorded rather than hidden
-
-The orders and the cutoff are the documents': third order in, third plus second out, `f_co = 2 kHz`
-in both of Panasonic's reference echo circuits. **The pole placement is a Butterworth alignment,
-chosen**, because the sources do not settle which capacitor sits at which node — worked through on
-the standard equal-R third-order Sallen-Key, the natural assignment of the anti-alias set puts a
-real pole at 16 Hz.
-
+The orders and the cutoff are the documents' (third order in, third plus second out, `f_co = 2 kHz`);
+the pole placement is a Butterworth alignment, **chosen** ([NOTES.md](NOTES.md#the-filters-alignment-is-chosen-and-the-reason-is-recorded-rather-than-hidden)).
 **Open, and this is where it is recorded:** the reference circuit's schematic read at a resolution
 that resolves the capacitor designators, or a swept measurement of a real one, would replace the
 alignment with the circuit's own.
 
-## The loop's takeoff and return nodes are read off the circuit
+## The loop
 
-Panasonic's MN3005 echo circuit (catalogue p. 58) settles it: the `Echo Control` pot sits across the
-**output**, after reconstruction, and returns to the **input summing node**, ahead of the anti-alias
-filter. So every lap re-applies the whole chain, which is why repeats degrade progressively — the
-load-bearing behaviour of the product. Dirt applied once at the output is a clean delay wearing a
-dirty coat.
+- **Takeoff after reconstruction, return at the input summing node ahead of the anti-alias
+  filter**, so every lap re-applies the whole chain. Never dirt applied once at the output
+  ([NOTES.md](NOTES.md#the-loops-takeoff-and-return-nodes-are-read-off-the-circuit)).
+- Declared departures: the compander's **position** is ours, and `Return = Tail` gives the takeoff
+  **its own reconstruction filter and expander state**.
 
-Two departures, both declared: the compander's **position** is ours (Panasonic's circuits have none
-at all), and `Return = Tail` gives the takeoff **its own reconstruction filter and expander state**,
-because one post-mix chain cannot carry the six-tap mix to the output and tap 6 to the loop at once.
+## Faders set shape, Mix the balance, Feedback regeneration
 
-## The faders set shape; Mix sets the balance; Feedback sets regeneration
+One control, one meaning ([NOTES.md](NOTES.md#the-faders-set-shape-mix-sets-the-balance-feedback-sets-regeneration)):
 
-**One control, one meaning — and it took two measured corrections to get there.** The owner's
-report was *"I cannot figure out how the Character / Feedback works"*, and they were right: opening
-the six-tap constellation moved the singing point from nine tenths of the travel to **one sixth**,
-because the tap faders were in everything at once.
-
-- **The mixer normalises by `√Σg²`**, the root sum of squares, so the faders are *relative weights*
-  and the output level does not move when one opens. Summing multiplied the level by the number of
-  open faders; plain averaging divides by it, which is right for correlated taps and wrong for
-  these — the MN3011's spacings are deliberately non-multiple, so its returns are decorrelated and
-  average to `1/√6`. Measured at 0.42 against a single tap's 1.03 before this was corrected.
-- **The loop divides by [`effective_taps`], the participation ratio `(Σg)²/Σg²`.** Even at equal
-  level, six decorrelated returns regenerate faster than one: with the mixer fixed the singing point
-  still slid 91 % → 67 % → 38 % as taps opened. A literal count would step as a fader crossed zero,
-  and a step here is a jump in how hard the delay regenerates.
+- **The mixer normalises by `√Σg²`**: faders are relative weights; opening one keeps the level.
+- **The loop divides by `effective_taps`, the participation ratio `(Σg)²/Σg²`**, never a literal
+  count, which would step as a fader crossed zero.
 - **`Return = Tail` feeds the loop one tap**, so its effective count is one whatever the mixer is
   doing for the output.
+- Every line sings at the same place on the travel whatever the taps (`examples/feedback_travel.rs`).
+- **Re-fit the law by measurement, never by arithmetic**, and keep the measuring harness free of
+  compensation of its own. Both have gone wrong twice.
 
-The result, `examples/feedback_travel.rs`, on all four lines and six tap settings: **88–93 %**.
+## `mix` is a crossfade
 
-**Two warnings for whoever changes the loop next.** Re-fit the law by measurement rather than
-reasoning about it — it has been re-fitted twice and both times the obvious arithmetic was wrong.
-And keep the measuring harness free of compensation of its own: `feedback_travel.rs` twice carried a
-divisor left over from a previous fit, cancelled or doubled what the DSP was doing, and reported
-confidently and wrongly both times.
+`out = (1 - mix) * dry + mix * fade * wet` (the owner, 2026-09-06): dry alone at one end, wet alone
+at the other ([NOTES.md](NOTES.md#mix-is-a-crossfade-and-the-fade-rides-the-wet-alone)).
 
-## `mix` is a crossfade, and the fade rides the wet alone
+- **`mix = 0` is bit-exact dry** (dry gain exactly one): `Fade::Parked` rests on it.
+- **The structural fade multiplies the wet term only**; a `Line` or `Routing` change never ducks the dry.
+- Tests state their claims at the mix they need: dry below one, wet clean of the dry only at one.
 
-`out = (1 - mix) * dry + mix * fade * wet`. The owner's ruling of 2026-09-06 replaced an added level
-with a balance, so that the unit can be **the source alone at one end and the echo alone at the
-other** — an added level cannot reach the wet by itself at any setting, which is what a send, a wet
-print and setting the tone by ear all need.
+## Feedback is calibrated against the running threshold
 
-- **`mix = 0` is bit-exact dry.** The dry gain is exactly one there, which is what
-  [`Fade::Parked`] and *doing nothing costs nothing* rest on.
-- **The structural fade multiplies the wet term only.** Dipping the dry through a `Line` or
-  `Routing` change would make the source itself duck, which is a defect and not a wart.
-- Tests state their claims at the mix they need: the dry is only visible below one, and the wet is
-  only clean of the dry at one.
+- `Line::sings_at` and `Line::starts_at` are **measured** by `examples/feedback_spike.rs`, never
+  derived: the compander is inside the loop
+  ([NOTES.md](NOTES.md#feedback-is-calibrated-not-derived-and-the-running-threshold-is-the-one-to-use)).
+- **Map the control against the running figure**, never the from-silence one. `feedback_gain`
+  scales by each line's own threshold, so all four sing at the same place on the knob.
 
-## Feedback is calibrated, not derived, and the running threshold is the one to use
+## The snap to exact zero
 
-`Line::sings_at` and `Line::starts_at` are **measured** by `examples/feedback_spike.rs`. They cannot
-be derived: the compander is inside the loop, so its compressor lifts a decaying tail on every lap
-and the line holds at a lower gain than the takeoff sum alone would say.
-
-**There are two thresholds and calibrating to the wrong one is the trap `mxm-folded-spring` cost
-three attempts on.** A line that has snapped to zero needs a quarter to a half more gain to start
-than a running one needs to hold; a delay somebody is playing through is never silent, so the
-control is mapped against the **running** figure. `feedback_gain` scales the curve by each line's own
-threshold, so all four sing at the same place on the knob.
-
-Two measurement mistakes were made here before they were caught, both of the shape that file warns
-about: the from-silence probe first asked *"is it still growing"* of a loop that had reached its
-limit by second four, and read every working setting as a failure.
-
-## The snap to exact zero, and the one thing it must yield to
-
-A quiet loop is cleared to exact zero once the quiet outlasts **the longest journey anything still
-held can take, plus `SNAP_HOLD_S`** — the journey matters, because a delay can be silent at its
-output while holding audio that has not come back yet, and snapping on the output alone truncates
-the first repeat after a gap.
-
-- **The journey is judged over the quiet, never at the controls now.** It is the longest lap either
-  running line has *actually* run at since the last loud sample — the clock in force, `Wobble`
-  included — and, in front of it while `Reverse` is in, the longest the window could hold a sample
-  (twice the larger of the window in force and the one asked for next). The buckets clock out at
-  whatever rate they run: judged against the current `Time`, a click at 2 s was cleared from inside
-  the line when Time went to 0.3 s three quarters of a lap later (it is due at 1.575 s); a slow
-  `Wobble` stretched a 2 s lap to 2.10 s, past the hold; and at 250 ms a reversed click, due at
-  0.75 s, was cleared from the window before it reached the line. The quiet is counted in `f64`.
-- **The plugin's tail is counted from now**, so it takes the lap in force — what is left of a
-  journey through the buckets is never longer — and adds the reverse hold in front, because a click
-  still in the window has not reached the line.
-- **The snap yields to self-oscillation.** Above `sings_at` the loop is a generator and the hardware
-  starts one from its own noise floor; clearing the line there would make that impossible.
-- **A snapped core stops, it does not merely clear.** The chip's own noise never stops, so a core
-  that cleared and kept running refills the line within one lap and never reaches exact zero. `Idle`
-  is what makes the silence exact, and it is the same fact as the collection's rule that an effect
-  doing nothing uses no CPU.
+- A quiet loop is cleared to exact zero once the quiet outlasts **the longest journey anything still
+  held can take, plus `SNAP_HOLD_S`**, never on the output alone
+  ([NOTES.md § worked examples](NOTES.md#the-snap-to-exact-zero-and-the-one-thing-it-must-yield-to)).
+- **The journey is judged over the quiet, never at the controls now**: the longest lap either line
+  has actually run at since the last loud sample (`Wobble` included), plus, while `Reverse` is in,
+  twice the larger of the window in force and the one asked for next. Counted in `f64`.
+- **The plugin's tail is counted from now**: the lap in force, plus the reverse hold in front.
+- **The snap yields to self-oscillation**: above `sings_at` the loop is a generator.
+- **A snapped core stops (`Idle`), it does not merely clear**: the chip's noise would refill a
+  running line within one lap.
 
 ## Dependencies: none at runtime, and no framework types
 
-**No *runtime* dependencies, and that is what earns the MSRV 1.87 override.** It is a claim about the
-shipped graph, checkable with `cargo tree -e normal,build`, and `[dependencies]` is empty.
-
-`[dev-dependencies]` holds **`mxm-measure`**, the collection's measurement rulers — zero dependencies
-at this same floor, reaching only tests and `examples/`, never a shipped `.clap`.
-[`../mxm-measure/AGENTS.md`](https://github.com/mxm-audio/mxm-kit/blob/main/crates/mxm-measure/AGENTS.md)'s verification section checks that rather than
-asserting it.
-
-`C64` and `Rng` are written here for the same reason and are the precedent. No `nice_plug::`
-anywhere; every public function takes plain values and a sample rate.
+- **`[dependencies]` is empty**, which earns the MSRV 1.87 override (`cargo tree -e normal,build`).
+  `[dev-dependencies]` holds only **`mxm-measure`**; `C64` and `Rng` are written here
+  ([NOTES.md](NOTES.md#dependencies-none-at-runtime-and-no-framework-types)).
+- No `nice_plug::` anywhere; every public function takes plain values and a sample rate.
 
 ## Realtime rules
 
 - No allocation in any per-sample path. Both lines and both reverse windows are allocated in
   `Core::new`, at the longest length the product reaches, so a `Line` change is an index change.
 - `flush()` on every recursive state; `reset()`/`clear()` leave no tail.
-- **No clear may cost the sample rate.** Every clear — a structural fade reaching zero, parking,
-  the idle snap — runs inside one audio sample on both lines. The reverse window (a second per
-  half) is invalidated by a per-half written count and never zeroed; an unwritten cell reads zero.
-  The line's own buffer is a fixed `BUFFER_SLOTS` whatever the rate, and is the one fill left.
-- **A half's count is its latest recording's, not everything since the last clear.** A half is
-  rewritten only as far as the window in force reaches, so after a long `Time` and then a short one
-  the cells past the short window still hold the long window's audio; counted since the clear, a
-  window that grew again replayed it — 43,200 samples on 1 s → 100 ms → 1 s, as old as Time had
-  sat short. Each write sets the count rather than raising it, so a growth reads silence for the
-  span it exposes, and nothing changes where no stale cell was read.
+- **No clear may cost the sample rate**: every clear runs inside one audio sample on both lines.
+  The reverse window is invalidated by a per-half written count, never zeroed
+  ([NOTES.md](NOTES.md#clears-that-cost-one-sample)).
+- **A half's count is its latest recording's**: each write sets the count, never raises it, so a
+  growing window never replays older audio ([NOTES.md](NOTES.md#the-reverse-windows-written-count)).
 - Denormals are flushed in the DSP itself, not by a framework FTZ guard.
 
 ## Numeric contracts
 
 - `f32` in the audio path; `f64` for the clock, the filters' coefficients and their state, where
   precision loss compounds.
-- **A non-finite sample is a zero where it enters**, at every seam a sample arrives through:
-  `Core::process`, `Unit::process` (input and return), `Bbd::process` and both halves of the
-  compander. Never at the output: a NaN in a filter's state or a detector is re-read every lap and
-  is never cleared while audio keeps arriving, and `f32::max` ignores one, so a detector holding it
-  sits at its floor, finite and wrong. `flush` stays denormal-only, so a NaN made *inside* the model
-  still fails the finiteness tests instead of turning into a silently dead line.
+- **A non-finite sample is a zero where it enters**, at every seam: `Core::process`,
+  `Unit::process` (input and return), `Bbd::process` and both halves of the compander. Never at the
+  output; `flush` stays denormal-only ([NOTES.md](NOTES.md#why-a-non-finite-sample-is-zeroed-where-it-enters)).
 - Every saturator is **bounded exactly in `f32`** and **monotonic**.
 - The clock is clamped to `[CLOCK_MIN_HZ, CLOCK_MAX_HZ]` inside the DSP, not only in the parameter
   layer, which a modulation sum can drive past.
@@ -252,10 +155,8 @@ anywhere; every public function takes plain values and a sample rate.
 
 # Verification
 
-**The rulers are shared, the thresholds are not.** `mxm-measure` is a `[dev-dependencies]` entry —
-zero dependencies at this same 1.87 floor, and **not in the shipped graph**, which is what the
-manifest's *no runtime dependencies* comment means. Measurements come from there; every bound and
-its headroom stays in the test that argues for it.
+**The rulers are shared, the thresholds are not.** Measurements come from `mxm-measure` (dev-only,
+not in the shipped graph); every bound and its headroom stays in the test that argues for it.
 
 ```bash
 cargo test -p mxm-bucket-delay-dsp
