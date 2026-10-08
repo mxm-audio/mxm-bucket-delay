@@ -11,6 +11,7 @@ use egui::{Event, Key, Modifiers};
 use mxm_bucket_delay::editor::{self, PresetUi};
 use mxm_bucket_delay::params::MxmBucketDelayParams;
 use mxm_bucket_delay::telemetry::Telemetry;
+use mxm_plugin_test::keyboard_checks::{COARSE, MICRO, OUT, VALUE, key_of};
 use nice_plug::prelude::*;
 
 /// A host that applies what the editor asks for, as the real one does.
@@ -118,15 +119,15 @@ fn every_keyboard_gesture_on_every_parameter_leaves_the_editor_standing() {
     for _card in 0..12 {
         for _parameter in 0..16 {
             for arrow in arrows {
-                frame(taps(&[Key::W, arrow, Key::Tab]));
+                frame(taps(&[key_of(VALUE), arrow, key_of(OUT)]));
                 frame(Vec::new());
             }
             for arrow in [Key::ArrowUp, Key::ArrowDown] {
-                frame(taps(&[Key::W, Key::S, arrow, Key::Tab]));
+                frame(taps(&[key_of(VALUE), key_of(COARSE), arrow, key_of(OUT)]));
                 frame(Vec::new());
             }
             for arrow in [Key::ArrowRight, Key::ArrowLeft] {
-                frame(taps(&[Key::W, Key::F, arrow, Key::Tab]));
+                frame(taps(&[key_of(VALUE), key_of(MICRO), arrow, key_of(OUT)]));
                 frame(Vec::new());
             }
             for end in [Key::Home, Key::End] {
@@ -135,14 +136,14 @@ fn every_keyboard_gesture_on_every_parameter_leaves_the_editor_standing() {
             }
             // A held VALUE + ↑: a press, two repeats, a release, then BACK cancels the gesture.
             frame(vec![
-                key(Key::W, none, true, false),
+                key(key_of(VALUE), none, true, false),
                 key(Key::ArrowUp, none, true, false),
             ]);
             frame(vec![key(Key::ArrowUp, none, true, true)]);
             frame(vec![key(Key::ArrowUp, none, true, true)]);
             frame(vec![key(Key::ArrowUp, none, false, false)]);
             frame(tap(Key::Escape));
-            frame(vec![key(Key::W, none, false, false)]);
+            frame(vec![key(key_of(VALUE), none, false, false)]);
             frame(tap(Key::Delete));
             frame(Vec::new());
             frame(tap(Key::ArrowRight));
@@ -150,9 +151,9 @@ fn every_keyboard_gesture_on_every_parameter_leaves_the_editor_standing() {
             frame(tap(Key::ArrowDown));
             frame(Vec::new());
         }
-        frame(taps(&[Key::S, Key::ArrowRight]));
+        frame(taps(&[key_of(COARSE), Key::ArrowRight]));
         frame(Vec::new());
-        frame(taps(&[Key::S, Key::ArrowDown]));
+        frame(taps(&[key_of(COARSE), Key::ArrowDown]));
         frame(Vec::new());
     }
 }
