@@ -104,34 +104,55 @@ fn every_keyboard_gesture_on_every_parameter_leaves_the_editor_standing() {
         frame(Vec::new());
     }
 
-    let press = |k: Key, m: Modifiers| vec![key(k, m, true, false), key(k, m, false, false)];
-    let values = [
+    // The keyboard language (every editor's since 2026-10-08), default keymap: W is VALUE, S
+    // COARSE, F MICRO, Tab OUT, Escape BACK.
+    let none = Modifiers::NONE;
+    let tap = |k: Key| vec![key(k, none, true, false), key(k, none, false, false)];
+    let taps = |keys: &[Key]| keys.iter().flat_map(|&k| tap(k)).collect::<Vec<_>>();
+    let arrows = [
         Key::ArrowRight,
         Key::ArrowLeft,
         Key::ArrowUp,
         Key::ArrowDown,
-        Key::Home,
-        Key::End,
     ];
     for _card in 0..12 {
         for _parameter in 0..16 {
-            for value in values {
-                frame(press(value, Modifiers::NONE));
+            for arrow in arrows {
+                frame(taps(&[Key::W, arrow, Key::Tab]));
                 frame(Vec::new());
             }
-            // A held key: a press, two repeats, a release.
-            frame(vec![key(Key::ArrowUp, Modifiers::NONE, true, false)]);
-            frame(vec![key(Key::ArrowUp, Modifiers::NONE, true, true)]);
-            frame(vec![key(Key::ArrowUp, Modifiers::NONE, true, true)]);
-            frame(vec![key(Key::ArrowUp, Modifiers::NONE, false, false)]);
-            frame(press(Key::ArrowRight, Modifiers::COMMAND));
+            for arrow in [Key::ArrowUp, Key::ArrowDown] {
+                frame(taps(&[Key::W, Key::S, arrow, Key::Tab]));
+                frame(Vec::new());
+            }
+            for arrow in [Key::ArrowRight, Key::ArrowLeft] {
+                frame(taps(&[Key::W, Key::F, arrow, Key::Tab]));
+                frame(Vec::new());
+            }
+            for end in [Key::Home, Key::End] {
+                frame(tap(end));
+                frame(Vec::new());
+            }
+            // A held VALUE + ↑: a press, two repeats, a release, then BACK cancels the gesture.
+            frame(vec![
+                key(Key::W, none, true, false),
+                key(Key::ArrowUp, none, true, false),
+            ]);
+            frame(vec![key(Key::ArrowUp, none, true, true)]);
+            frame(vec![key(Key::ArrowUp, none, true, true)]);
+            frame(vec![key(Key::ArrowUp, none, false, false)]);
+            frame(tap(Key::Escape));
+            frame(vec![key(Key::W, none, false, false)]);
+            frame(tap(Key::Delete));
             frame(Vec::new());
-            frame(press(Key::ArrowDown, Modifiers::COMMAND));
+            frame(tap(Key::ArrowRight));
+            frame(Vec::new());
+            frame(tap(Key::ArrowDown));
             frame(Vec::new());
         }
-        frame(press(Key::ArrowRight, Modifiers::SHIFT));
+        frame(taps(&[Key::S, Key::ArrowRight]));
         frame(Vec::new());
-        frame(press(Key::ArrowDown, Modifiers::SHIFT));
+        frame(taps(&[Key::S, Key::ArrowDown]));
         frame(Vec::new());
     }
 }
