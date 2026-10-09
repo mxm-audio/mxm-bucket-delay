@@ -11,7 +11,7 @@ use egui::{Event, Key, Modifiers};
 use mxm_bucket_delay::editor::{self, PresetUi};
 use mxm_bucket_delay::params::MxmBucketDelayParams;
 use mxm_bucket_delay::telemetry::Telemetry;
-use mxm_plugin_test::keyboard_checks::{COARSE, MICRO, OUT, VALUE, key_of};
+use mxm_plugin_test::keyboard_checks::{COARSE, MICRO, OUT, VALUE, VIEW, key_of};
 use nice_plug::prelude::*;
 
 /// A host that applies what the editor asks for, as the real one does.
@@ -105,8 +105,9 @@ fn every_keyboard_gesture_on_every_parameter_leaves_the_editor_standing() {
         frame(Vec::new());
     }
 
-    // The keyboard language (every editor's since 2026-10-08), default keymap: W is VALUE, S
-    // COARSE, F MICRO, Tab OUT, Escape BACK.
+    // The keyboard language (every editor's since 2026-10-08), pressed as jobs on the default
+    // keymap's keys: VALUE, COARSE, MICRO (← → snap to the next line, 2026-10-09), OUT, Escape
+    // BACK, and VIEW + an arrow to the next card.
     let none = Modifiers::NONE;
     let tap = |k: Key| vec![key(k, none, true, false), key(k, none, false, false)];
     let taps = |keys: &[Key]| keys.iter().flat_map(|&k| tap(k)).collect::<Vec<_>>();
@@ -151,9 +152,9 @@ fn every_keyboard_gesture_on_every_parameter_leaves_the_editor_standing() {
             frame(tap(Key::ArrowDown));
             frame(Vec::new());
         }
-        frame(taps(&[key_of(COARSE), Key::ArrowRight]));
+        frame(taps(&[key_of(VIEW), Key::ArrowRight]));
         frame(Vec::new());
-        frame(taps(&[key_of(COARSE), Key::ArrowDown]));
+        frame(taps(&[key_of(VIEW), Key::ArrowDown]));
         frame(Vec::new());
     }
 }
