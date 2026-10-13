@@ -4,11 +4,10 @@
 //! allocation, and the UI may drop as many frames as it likes — a display that made the audio
 //! thread wait would be a display that could cause a dropout.
 //!
-//! Two rules carried from every other `telemetry.rs` in the collection:
-//!
-//! - **A peak is max-combined and reset when the UI reads it.** Overwriting each block means a
-//!   transient that landed between two frames is simply gone.
-//! - **A clip latches until acknowledged.** Design system §5.4.
+//! **The meter is `mxm_telemetry`'s**, held as `meter`, with one policy for every plugin: a peak
+//! is max-combined and reset when the UI reads it, a clip latches until acknowledged (design
+//! system §5.4), and a non-finite peak latches the clip and is never the level. What follows here
+//! is this plugin's own.
 //!
 //! # The ring is what the constellation is drawn from
 //!
@@ -23,14 +22,13 @@
 //! statement about effects rather than an omission here.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 #[derive(Debug)]
 pub struct Telemetry {
-    /// Peak of the samples produced, max-combined, reset on read.
-    peak: AtomicU32,
-    /// Sticky: set when a sample reaches full scale, cleared only by the user.
-    clipped: AtomicBool,
+    /// The output level and its clip latch: the collection's one meter policy
+    /// (`mxm_telemetry::PeakMeter`).
+    pub meter: mxm_telemetry::PeakMeter,
     /// The loudest wet the block added, max-combined, reset on read.
     ring: AtomicU32,
     /// The host's tempo, or zero where the host gives none. **Not a meter**: it is overwritten
@@ -52,8 +50,7 @@ impl Default for Telemetry {
 impl Telemetry {
     pub fn new() -> Self {
         Self {
-            peak: AtomicU32::new(0),
-            clipped: AtomicBool::new(false),
+            meter: mxm_telemetry::PeakMeter::new(),
             ring: AtomicU32::new(0),
             tempo: mxm_tempo::TempoCell::new(),
         }
@@ -77,20 +74,8 @@ impl Telemetry {
         }
     }
 
-    pub fn publish_peak(&self, peak: f32) {
-        Self::publish_max(&self.peak, peak);
-        if peak >= 1.0 {
-            self.clipped.store(true, Ordering::Relaxed);
-        }
-    }
-
     pub fn publish_ring(&self, ring: f32) {
         Self::publish_max(&self.ring, ring);
-    }
-
-    /// Reads and clears, so a transient between two frames is reported once rather than lost.
-    pub fn take_peak(&self) -> f32 {
-        f32::from_bits(self.peak.swap(0, Ordering::Relaxed))
     }
 
     pub fn take_ring(&self) -> f32 {
@@ -107,44 +92,11 @@ impl Telemetry {
     pub fn tempo(&self) -> Option<f64> {
         self.tempo.get()
     }
-
-    pub fn clipped(&self) -> bool {
-        self.clipped.load(Ordering::Relaxed)
-    }
-
-    pub fn clear_clip(&self) {
-        self.clipped.store(false, Ordering::Relaxed);
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_peak_is_max_combined_and_cleared_on_read() {
-        let t = Telemetry::new();
-        t.publish_peak(0.2);
-        t.publish_peak(0.7);
-        t.publish_peak(0.4);
-        assert_eq!(
-            t.take_peak(),
-            0.7,
-            "the loudest of the block has to survive"
-        );
-        assert_eq!(t.take_peak(), 0.0, "and reading has to clear it");
-    }
-
-    #[test]
-    fn a_clip_latches_until_it_is_acknowledged() {
-        let t = Telemetry::new();
-        t.publish_peak(1.0);
-        assert!(t.clipped());
-        t.take_peak();
-        assert!(t.clipped(), "reading the peak must not clear the clip");
-        t.clear_clip();
-        assert!(!t.clipped());
-    }
 
     /// The tempo is the one in force, not a peak: it overwrites, and reading does not clear it.
     #[test]
@@ -167,8 +119,8 @@ mod tests {
     fn the_ring_is_its_own_channel() {
         let t = Telemetry::new();
         t.publish_ring(0.5);
-        t.publish_peak(0.9);
+        t.meter.publish(0.9);
         assert_eq!(t.take_ring(), 0.5);
-        assert_eq!(t.take_peak(), 0.9);
+        assert_eq!(t.meter.take(), 0.9);
     }
 }

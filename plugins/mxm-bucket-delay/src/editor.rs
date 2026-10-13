@@ -177,8 +177,8 @@ pub fn panel(
     // egui repaints when something happens; a tail decaying is not something egui can see.
     ui.ctx().request_repaint();
 
-    let peak = telemetry.take_peak();
-    let clipped = telemetry.clipped();
+    let peak = telemetry.meter.take();
+    let clipped = telemetry.meter.clipped();
     // One question, and both layers suspend on it: the paging renderer's `hold` and the cursor's
     // `inert` both ask whether another surface owns this frame's keyboard.
     let busy = presets.holds_the_keyboard() || text_entry.values().any(Option::is_some);
@@ -194,7 +194,7 @@ pub fn panel(
         |ui| mxm_preset::ui::preset_row(ui, tokens, params, setter, presets),
         |ui| {
             if mxm_ui::shell::level_meter(ui, tokens, peak, clipped) {
-                telemetry.clear_clip();
+                telemetry.meter.clear_clip();
             }
             mxm_ui::shell::zoom_control(ui);
 

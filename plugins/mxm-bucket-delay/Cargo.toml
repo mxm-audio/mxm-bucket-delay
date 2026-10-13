@@ -22,6 +22,7 @@ nice-plug-egui.workspace = true
 mxm-ui.workspace = true
 mxm-preset.workspace = true
 mxm-params.workspace = true
+mxm-telemetry.workspace = true
 mxm-tempo.workspace = true
 egui.workspace = true
 # The device. This product's own DSP crate, named for the product rather than for the chip: a

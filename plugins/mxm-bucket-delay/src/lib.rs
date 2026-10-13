@@ -372,7 +372,7 @@ impl MxmBucketDelay {
             }
         }
 
-        self.telemetry.publish_peak(peak);
+        self.telemetry.meter.publish(peak);
         self.telemetry.publish_ring(ring);
 
         if active || self.singing() || self.core.is_parked() {
