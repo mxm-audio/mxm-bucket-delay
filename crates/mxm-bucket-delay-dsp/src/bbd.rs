@@ -748,14 +748,7 @@ mod tests {
     /// fundamental from the images the sampling puts either side of the clock, which a peak
     /// measurement cannot do.
     fn amplitude_at(y: &[f32], hz: f64, fs: f64) -> f64 {
-        let (mut re, mut im) = (0.0, 0.0);
-        let n = y.len();
-        for (i, &s) in y.iter().enumerate() {
-            let t = core::f64::consts::TAU * hz * (i as f64) / fs;
-            re += s as f64 * t.cos();
-            im -= s as f64 * t.sin();
-        }
-        2.0 * (re * re + im * im).sqrt() / n as f64
+        mxm_measure::spectrum::component_amplitude(y, hz, fs).expect("a finite, non-empty render")
     }
 
     /// The bounds are the clock's limits put through the delay law, and they are **ordered, distinct

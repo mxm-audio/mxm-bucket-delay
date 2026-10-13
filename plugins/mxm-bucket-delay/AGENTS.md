@@ -143,7 +143,7 @@ silences anti-correlated material ([NOTES.md](NOTES.md#two-layouts-and-nothing-i
 # Work Guidance
 
 - The brief is the gating document for the editor; implement it, do not re-decide it.
-- `src/editor/binding.rs` re-exports `mxm_preset::binding`, the collection's one binding (2026-09-24); it was
+- `src/editor/binding.rs` re-exports `mxm_params::binding`, the collection's one binding (2026-09-24); it was
   the seventh verbatim copy.
 
 # Verification

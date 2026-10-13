@@ -29,6 +29,8 @@
 
 use mxm_bucket_delay_dsp::bbd::FilterMode;
 use mxm_bucket_delay_dsp::{Line, Return, Routing};
+use mxm_params::text;
+use mxm_params::text::{StringToValue, ValueToString};
 use mxm_preset::PresetIdentity;
 use nice_plug::prelude::*;
 use std::sync::{Arc, RwLock};
@@ -221,44 +223,6 @@ impl FilterChoice {
     }
 }
 
-/// Formats a parameter value for display.
-type ValueToString = Arc<dyn Fn(f32) -> String + Send + Sync>;
-/// Parses a typed-in value, returning `None` if it cannot be understood.
-type StringToValue = Arc<dyn Fn(&str) -> Option<f32> + Send + Sync>;
-
-fn v2s_percent() -> ValueToString {
-    Arc::new(|v| format!("{:.0} %", v * 100.0))
-}
-
-fn s2v_percent() -> StringToValue {
-    Arc::new(|text| {
-        text.trim()
-            .trim_end_matches('%')
-            .trim()
-            .parse::<f32>()
-            .ok()
-            .map(|v| v / 100.0)
-    })
-}
-
-/// Milliseconds below a second, seconds to two decimals from one.
-///
-/// **The branch is chosen from the rounding the finer branch prints**, never from the raw value. A
-/// host formats a value, parses the text and formats what the parameter's normalized inverse gives
-/// back: at a raw `v < 1.0` test, 0.9996 s printed `1000 ms`, parsed to exactly one second, and came
-/// back as `1.00 s` — or the mirror, whichever side of one the inverse lands. Deciding on the
-/// rounded millisecond means every reading of one second is `1.00 s`, and parsing it cannot cross.
-fn v2s_ms() -> ValueToString {
-    Arc::new(|v| {
-        let ms = v * 1000.0;
-        if ms.round() >= 1000.0 {
-            format!("{v:.2} s")
-        } else {
-            format!("{ms:.0} ms")
-        }
-    })
-}
-
 fn s2v_ms() -> StringToValue {
     Arc::new(|text| {
         let t = text.trim().to_ascii_lowercase();
@@ -330,8 +294,8 @@ fn tap(index: usize, default: f32) -> FloatParam {
         FloatRange::Linear { min: 0.0, max: 1.0 },
     )
     .with_smoother(SmoothingStyle::Linear(10.0))
-    .with_value_to_string(v2s_percent())
-    .with_string_to_value(s2v_percent())
+    .with_value_to_string(text::percent())
+    .with_string_to_value(text::parse_percent())
 }
 
 /// The reference reverberation circuit's own mixing ladder, as gains.
@@ -456,13 +420,13 @@ impl Default for MxmBucketDelayParams {
                 // Time is the clock, so a change *bends pitch*. The smoother is the glide, and it is
                 // long for that reason rather than for zipper noise.
                 .with_smoother(SmoothingStyle::Linear(120.0))
-                .with_value_to_string(v2s_ms())
+                .with_value_to_string(text::milliseconds_then_seconds())
                 .with_string_to_value(s2v_ms()),
 
             feedback: FloatParam::new("Feedback", 0.35, FloatRange::Linear { min: 0.0, max: 1.0 })
                 .with_smoother(SmoothingStyle::Linear(20.0))
-                .with_value_to_string(v2s_percent())
-                .with_string_to_value(s2v_percent()),
+                .with_value_to_string(text::percent())
+                .with_string_to_value(text::parse_percent()),
 
             mix: FloatParam::new(
                 "Mix",
@@ -470,8 +434,8 @@ impl Default for MxmBucketDelayParams {
                 FloatRange::Linear { min: 0.0, max: 1.0 },
             )
             .with_smoother(SmoothingStyle::Linear(10.0))
-            .with_value_to_string(v2s_percent())
-            .with_string_to_value(s2v_percent()),
+            .with_value_to_string(text::percent())
+            .with_string_to_value(text::parse_percent()),
 
             tap1: tap(0, 0.0),
             tap2: tap(1, 0.0),
@@ -502,8 +466,8 @@ impl Default for MxmBucketDelayParams {
             .with_string_to_value(s2v_bias()),
             wobble: FloatParam::new("Wobble", 0.0, FloatRange::Linear { min: 0.0, max: 1.0 })
                 .with_smoother(SmoothingStyle::Linear(30.0))
-                .with_value_to_string(v2s_percent())
-                .with_string_to_value(s2v_percent()),
+                .with_value_to_string(text::percent())
+                .with_string_to_value(text::parse_percent()),
             rate: FloatParam::new(
                 "Rate",
                 0.4,
@@ -713,85 +677,19 @@ mod tests {
         }
     }
 
-    /// One trip through the host, as nice-plug's CLAP wrapper makes it (`vendor/nice-plug` before
-    /// the split; the mxm-audio/nice-plug fork since 2026-10-06): the CLAP value is the
-    /// normalized value times the step count, the text carries the unit, and the parsed text
-    /// comes back through the parameter's normalized conversion before it is formatted again.
-    /// Returns the failure, if the text changed or did not parse.
-    ///
-    /// # Safety
-    ///
-    /// `ptr` must point at a parameter that outlives the call.
-    unsafe fn host_round_trip(id: &str, ptr: ParamPtr, clap_value: f64) -> Option<String> {
-        unsafe {
-            let steps = ptr.step_count().unwrap_or(1);
-            let normalised = clap_value as f32 / steps as f32;
-            let first = ptr.normalized_value_to_string(normalised, true);
-            let Some(parsed) = ptr.string_to_normalized_value(&first) else {
-                return Some(format!("{id}: {first:?} does not parse"));
-            };
-            let back = parsed as f64 * steps as f64;
-            let second = ptr.normalized_value_to_string(back as f32 / steps as f32, true);
-            (second != first).then(|| {
-                format!(
-                    "{id} at plain {}: {first:?} came back {second:?}",
-                    ptr.preview_plain(normalised)
-                )
-            })
-        }
-    }
-
-    /// **Every value this plugin writes down, it reads back to the same text through the host's
-    /// normalized conversion.** A host formats a value, parses the text, normalizes the result and
-    /// formats that again, so the text must survive the parameter's normalized inverse — not merely
-    /// come back within a tolerance. `clap-validator`'s `param-conversions` checks exactly this, on a
-    /// grid of its own, so a clean validator run proves nothing about a sliver between its points.
-    ///
-    /// The first version of this test compared plain values within a tolerance with the unit off,
-    /// which is not the host's path: it passed `Time` turning `1000 ms` into `1.00 s` and `Rate`
-    /// turning `1.000 Hz` into `1.00 Hz` across their unit boundaries. Before that,
-    /// `param-conversions` had found `Rate`'s parser rejecting its own `0.40 Hz`.
-    ///
-    /// Probes, for every parameter: the twenty-step grid; `clap-validator` 0.4.1's own grid, whose
-    /// size follows the parameter count; both sides of every branch point in [`branch_points`]; and
-    /// a hair either side of zero on a range that crosses it.
+    /// **Every parameter's text survives the host's round trip**, with the unit on, across the
+    /// collection's grids and switch points (`mxm_plugin_test::text_checks`), plus both sides of
+    /// every branch point in [`branch_points`].
     #[test]
-    fn every_parameter_text_is_idempotent_through_the_hosts_conversion() {
+    fn every_parameter_text_survives_the_hosts_round_trip() {
         let params = MxmBucketDelayParams::default();
-        let map = params.param_map();
-        let validator_points = 4000usize.div_ceil(map.len()).clamp(5, 100);
-        let mut failures = Vec::new();
-        for (id, ptr, _) in map {
-            // SAFETY: `params` owns every parameter these pointers refer to and outlives the loop;
-            // this is the access `param-conversions` makes through CLAP.
-            unsafe {
-                let steps = ptr.step_count().unwrap_or(1) as f64;
-                let mut probes: Vec<f64> = (0..=19).map(|i| steps * i as f64 / 19.0).collect();
-                probes.extend(
-                    (0..validator_points)
-                        .map(|i| steps * (i as f64 / (validator_points - 1) as f64)),
-                );
-                let mut plains: Vec<f32> = branch_points(&id)
-                    .into_iter()
-                    .flat_map(|(point, step)| around(point, step))
-                    .collect();
-                let (low, high) = (ptr.preview_plain(0.0), ptr.preview_plain(1.0));
-                if low.min(high) < 0.0 && low.max(high) > 0.0 {
-                    plains.extend([-1.0e-3, -1.0e-4, 0.0, 1.0e-4, 1.0e-3]);
-                }
-                probes.extend(
-                    plains
-                        .into_iter()
-                        .map(|plain| ptr.preview_normalized(plain) as f64 * steps),
-                );
-                failures.extend(
-                    probes
-                        .into_iter()
-                        .filter_map(|value| host_round_trip(&id, ptr, value)),
-                );
-            }
-        }
-        assert!(failures.is_empty(), "{}", failures.join("\n"));
+        let boundaries: Vec<f32> = params
+            .param_map()
+            .iter()
+            .flat_map(|(id, _, _)| branch_points(id))
+            .flat_map(|(point, step)| around(point, step))
+            .collect();
+        mxm_plugin_test::text_checks::every_text_round_trips(&params, &boundaries);
     }
 
     /// The ladder is the circuit's, tilting gently rather than decaying, and it is a shape a preset

@@ -51,6 +51,8 @@ fn core_for(line: Line, feedback: f32) -> Core {
     core
 }
 
+/// `f32` accumulation, kept rather than `mxm_measure::level::rms`: the ratios this crate's AGENTS
+/// quotes from the spike were measured with it.
 fn rms(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return 0.0;
