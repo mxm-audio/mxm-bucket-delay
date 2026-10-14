@@ -3,13 +3,15 @@ name = "mxm-bucket-delay-dsp"
 description = "DSP for mxm-bucket-delay: a bucket brigade device and the circuit around it"
 version.workspace = true
 edition.workspace = true
-# No runtime dependencies: genuinely portable, so it does NOT inherit the 1.95 GUI floor.
+# One runtime dependency, `mxm-rng`, dependency-free at this same floor: genuinely portable, so it
+# does NOT inherit the 1.95 GUI floor.
 rust-version = "1.87"
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+mxm-rng.workspace = true
 
 # Measurement rulers for the tests only. Zero dependencies at this same floor.
 [dev-dependencies]

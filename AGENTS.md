@@ -141,7 +141,7 @@ locally (*Verification*).
 
 | Crate | MSRV | Why |
 |---|---|---|
-| `crates/mxm-bucket-delay-dsp` | **1.87** | Likewise — no runtime dependencies; the bucket brigade device and the circuit around it. **The first DSP crate that is not an instrument's**, so nothing above it constrains it |
+| `crates/mxm-bucket-delay-dsp` | **1.87** | Likewise — one runtime dependency, the dependency-free `mxm-rng`; the bucket brigade device and the circuit around it. **The first DSP crate that is not an instrument's**, so nothing above it constrains it |
 | `plugins/mxm-bucket-delay` | **1.95** | Its editor pulls in egui; depends on `mxm-bucket-delay-dsp`, which stays at 1.87 |
 
 ## Licensing

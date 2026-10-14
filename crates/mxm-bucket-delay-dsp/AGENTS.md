@@ -116,11 +116,11 @@ at the other ([NOTES.md](NOTES.md#mix-is-a-crossfade-and-the-fade-rides-the-wet-
 - **A snapped core stops (`Idle`), it does not merely clear**: the chip's noise would refill a
   running line within one lap.
 
-## Dependencies: none at runtime, and no framework types
+## Dependencies: one at runtime, and no framework types
 
-- **`[dependencies]` is empty**, which earns the MSRV 1.87 override (`cargo tree -e normal,build`).
-  `[dev-dependencies]` holds only **`mxm-measure`**; `C64` and `Rng` are written here
-  ([NOTES.md](NOTES.md#dependencies-none-at-runtime-and-no-framework-types)).
+- **`[dependencies]` is `mxm-rng` alone**, dependency-free at 1.87, which keeps the MSRV 1.87
+  override (`cargo tree -e normal,build`). `[dev-dependencies]` holds only **`mxm-measure`**; `C64`
+  is written here ([NOTES.md](NOTES.md#dependencies-one-at-runtime-and-no-framework-types)).
 - No `nice_plug::` anywhere; every public function takes plain values and a sample rate.
 
 ## Realtime rules

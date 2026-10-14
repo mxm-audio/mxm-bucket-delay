@@ -820,7 +820,7 @@ impl Core {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Rng;
+    use mxm_rng::Xorshift32;
 
     const FS: f32 = 48_000.0;
 
@@ -1174,7 +1174,7 @@ mod tests {
     /// self-oscillating region and silence in.
     #[test]
     fn it_cannot_blow_up() {
-        let mut rng = Rng::new(4242);
+        let mut rng = Xorshift32::new(4242);
         for &feedback in &[0.0, 0.5, 0.95, 1.0, 1.5] {
             for line in Line::ALL {
                 for routing in [Routing::Mono, Routing::Stereo, Routing::PingPong] {
@@ -1197,7 +1197,7 @@ mod tests {
 
                         for i in 0..20_000 {
                             let x = if i < 5000 {
-                                rng.next_bipolar() * 2.0
+                                rng.bipolar_f32() * 2.0
                             } else {
                                 0.0
                             };
@@ -1576,7 +1576,7 @@ mod tests {
             c.set_shape(shape);
             run(c, &silence((3.0 * FADE_S * FS) as usize));
         }
-        let mut noise = Rng::new(99);
+        let mut noise = Xorshift32::new(99);
         let mut i = 0usize;
         // After the loud part both are fed the same quiet tone, which keeps both awake: neither
         // snaps, so both run the same chip noise.
@@ -1592,7 +1592,7 @@ mod tests {
                 for _ in 0..(seconds * FS) as usize {
                     let quiet = 1e-3 * (core::f32::consts::TAU * 220.0 * i as f32 / FS).sin();
                     let (x, y) = if loud {
-                        (0.5 * noise.next_bipolar(), 0.0)
+                        (0.5 * noise.bipolar_f32(), 0.0)
                     } else {
                         (quiet, quiet)
                     };

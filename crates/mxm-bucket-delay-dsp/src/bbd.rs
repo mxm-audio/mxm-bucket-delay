@@ -26,7 +26,8 @@
 //! anything to a datasheet curve.
 
 use crate::modal::ModalLowpass;
-use crate::{Clock, FIXED_CUTOFF_HZ, Rng, TRACKING_CUTOFF_RATIO, finite_or_zero, flush};
+use crate::{Clock, FIXED_CUTOFF_HZ, TRACKING_CUTOFF_RATIO, finite_or_zero, flush};
+use mxm_rng::Xorshift32;
 
 /// The longest line the product reaches: two MN3005s, which is what one MN3101 is specified to
 /// drive (catalogue pp. 56–61). Every line is allocated at this length, so a `Line` change is an
@@ -422,7 +423,7 @@ pub struct Bbd {
     tap_gains: [f32; TAPS],
     spread: f32,
 
-    noise: Rng,
+    noise: Xorshift32,
     noise_state: f32,
     noise_level: f32,
 
@@ -449,7 +450,7 @@ impl Bbd {
             taps: [0; TAPS],
             tap_gains: [1.0; TAPS],
             spread: 1.0,
-            noise: Rng::new(seed),
+            noise: Xorshift32::new(seed),
             noise_state: 0.0,
             noise_level: 0.0,
             bias: 0.0,
@@ -570,7 +571,7 @@ impl Bbd {
         // The chip's own floor, at the chip's own input, clocked like everything else: a one-pole
         // on white noise whose corner is a fraction of the clock, so the colour narrows as the
         // delay lengthens.
-        let white = self.noise.next_bipolar();
+        let white = self.noise.bipolar_f32();
         let coeff = NOISE_COLOUR_RATIO.clamp(0.0, 0.5);
         self.noise_state += coeff * (white - self.noise_state);
         let with_noise = sampled + self.noise_level * self.noise_state;
@@ -1191,9 +1192,9 @@ mod tests {
                     open_taps(&mut bbd);
                     let clock = Clock::from_hz(hz);
                     let dt = 1.0 / 44_100.0;
-                    let mut rng = Rng::new(99);
+                    let mut rng = Xorshift32::new(99);
                     for _ in 0..20_000 {
-                        let (mix, tail) = bbd.process(rng.next_bipolar() * 4.0, clock, dt, true);
+                        let (mix, tail) = bbd.process(rng.bipolar_f32() * 4.0, clock, dt, true);
                         assert!(
                             mix.is_finite() && tail.is_finite(),
                             "{line:?} {mode:?} {hz}"
