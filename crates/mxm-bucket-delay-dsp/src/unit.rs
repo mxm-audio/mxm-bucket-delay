@@ -31,7 +31,8 @@
 
 use crate::bbd::{Bbd, FilterMode, Line, TAPS};
 use crate::compander::{Compander, Expander};
-use crate::{Clock, finite_or_zero, flush};
+use crate::{Clock, finite_or_zero};
+use mxm_dsp::guard::flush;
 
 /// How long a structural change takes to fade the wet out and back in, in seconds.
 ///

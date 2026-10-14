@@ -180,11 +180,12 @@ the first repeat after a gap.
   is what makes the silence exact, and it is the same fact as the collection's rule that an effect
   doing nothing uses no CPU.
 
-## Dependencies: one at runtime, and no framework types
+## Dependencies: two at runtime, and no framework types
 
-**One *runtime* dependency, `mxm-rng`, dependency-free at this floor, and that is what keeps the MSRV
-1.87 override.** It is a claim about the shipped graph, checkable with `cargo tree -e normal,build`;
-the generator came from the kit when the collection's copies became one (the audit's O3).
+**Two *runtime* dependencies, `mxm-rng` and `mxm-dsp`, dependency-free at this floor, and that is what
+keeps the MSRV 1.87 override.** It is a claim about the shipped graph, checkable with `cargo tree -e normal,build`;
+the generator came from the kit when the collection's copies became one (the audit's O3), and `flush`
+with the synths' identical copies (O1).
 
 `[dev-dependencies]` holds **`mxm-measure`**, the collection's measurement rulers — zero dependencies
 at this same floor, reaching only tests and `examples/`, never a shipped `.clap`.

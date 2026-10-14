@@ -22,7 +22,8 @@
 //!   being the wet output (the plan's §2). Panasonic's circuits, having no compander, settle
 //!   nothing about where one goes.
 
-use crate::{finite_or_zero, flush};
+use crate::finite_or_zero;
+use mxm_dsp::guard::flush;
 
 /// The averager's time constant, in seconds.
 ///

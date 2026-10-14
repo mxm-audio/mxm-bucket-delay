@@ -44,20 +44,6 @@ pub use bbd::{Bbd, Line};
 pub use compander::Compander;
 pub use unit::{Controls, Core, Return, Routing, Shape, Unit, applied_feedback, effective_taps};
 
-/// Flush a denormal to exact zero.
-///
-/// Every recursive state in this crate passes through here. Not a framework FTZ guard — that may be
-/// a no-op without an opt-in feature, and DSP-level flushing is what preserves exact digital
-/// silence, which this product needs because a finite tail has to *reach* zero for the host to be
-/// told the tail ended (the plan's §3).
-///
-/// `1e-20` is far above the f32 denormal threshold (~1.18e-38) and about -400 dB, so nothing
-/// audible is lost.
-#[inline(always)]
-pub fn flush(x: f32) -> f32 {
-    if x.abs() < 1e-20 { 0.0 } else { x }
-}
-
 /// A non-finite sample becomes zero; everything else passes untouched.
 ///
 /// **At the entry of every seam a sample arrives through**, not at the output: a NaN that reached
@@ -203,14 +189,5 @@ mod tests {
         assert_eq!(Clock::from_hz(-1.0).hz(), CLOCK_MIN_HZ);
         assert_eq!(Clock::from_hz(1e12).hz(), CLOCK_MAX_HZ);
         assert_eq!(Clock::for_delay(4096, 0.0).hz(), CLOCK_MAX_HZ);
-    }
-
-    #[test]
-    fn flush_preserves_audible_values_and_zeroes_denormals() {
-        assert_eq!(flush(0.0), 0.0);
-        assert_eq!(flush(1e-30), 0.0);
-        assert_eq!(flush(-1e-30), 0.0);
-        assert_eq!(flush(0.5), 0.5);
-        assert_eq!(flush(-1e-6), -1e-6);
     }
 }

@@ -26,7 +26,8 @@
 //! anything to a datasheet curve.
 
 use crate::modal::ModalLowpass;
-use crate::{Clock, FIXED_CUTOFF_HZ, TRACKING_CUTOFF_RATIO, finite_or_zero, flush};
+use crate::{Clock, FIXED_CUTOFF_HZ, TRACKING_CUTOFF_RATIO, finite_or_zero};
+use mxm_dsp::guard::flush;
 use mxm_rng::Xorshift32;
 
 /// The longest line the product reaches: two MN3005s, which is what one MN3101 is specified to
