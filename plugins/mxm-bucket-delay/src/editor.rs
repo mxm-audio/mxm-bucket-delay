@@ -129,14 +129,7 @@ impl NiceEguiApp for MxmBucketDelayApp {
         nice_gui_ctx: GuiContext,
         _frame: &mut nice_plug_egui::Frame,
     ) -> Result<(), nice_plug_egui::baseview::HandlerError> {
-        mxm_ui::theme::apply(&egui_ctx);
-        mxm_ui::typography::apply(&egui_ctx);
-        // Light by default, overridable with `MXM_EDITOR_THEME`. The reasoning, and why the
-        // default is not `System`, lives on `mxm_ui::theme::preference`.
-        egui_ctx.set_theme(mxm_ui::theme::preference());
-
-        // The keys of the keymap in use, in the folder newDAWn and every MXM editor share.
-        mxm_ui::navigation::use_shared_keymap(&egui_ctx);
+        mxm_ui::shell::install(&egui_ctx);
         self.gui_context = Some(nice_gui_ctx);
         Ok(())
     }
@@ -177,8 +170,6 @@ pub fn panel(
     // egui repaints when something happens; a tail decaying is not something egui can see.
     ui.ctx().request_repaint();
 
-    let peak = telemetry.meter.take();
-    let clipped = telemetry.meter.clipped();
     // One question, and both layers suspend on it: the paging renderer's `hold` and the cursor's
     // `inert` both ask whether another surface owns this frame's keyboard.
     let busy = presets.holds_the_keyboard() || text_entry.values().any(Option::is_some);
@@ -193,9 +184,7 @@ pub fn panel(
         tokens,
         |ui| mxm_preset::ui::preset_row(ui, tokens, params, setter, presets),
         |ui| {
-            if mxm_ui::shell::level_meter(ui, tokens, peak, clipped) {
-                telemetry.meter.clear_clip();
-            }
+            mxm_ui::shell::peak_meter(ui, tokens, &telemetry.meter);
             mxm_ui::shell::zoom_control(ui);
 
             // §3.1 slot 5, and the same place the player keeps it: at the left end of the bar's
