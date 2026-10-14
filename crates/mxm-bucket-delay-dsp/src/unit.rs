@@ -29,9 +29,10 @@
 //! is a duplication of an input rather than a mixdown of two — summing two sources would silence
 //! anti-correlated material, and that is a defect rather than a wart.
 
+use crate::Clock;
 use crate::bbd::{Bbd, FilterMode, Line, TAPS};
 use crate::compander::{Compander, Expander};
-use crate::{Clock, finite_or_zero};
+use mxm_dsp::guard::finite_or;
 use mxm_dsp::guard::flush;
 
 /// How long a structural change takes to fade the wet out and back in, in seconds.
@@ -365,8 +366,8 @@ impl Unit {
         c: &Controls,
         shape: &Shape,
     ) -> UnitOut {
-        let external = finite_or_zero(external);
-        let feedback_in = finite_or_zero(feedback_in);
+        let external = finite_or(external, 0.0);
+        let feedback_in = finite_or(feedback_in, 0.0);
         let clock = self.clock(c);
         self.lap_s = clock.delay_seconds(self.bbd.line().stages());
         let dt = 1.0 / self.sample_rate as f64;
@@ -596,8 +597,8 @@ impl Core {
     pub fn process(&mut self, in_l: f32, in_r: f32, one_input: bool) -> (f32, f32) {
         // Before anything reads them — the dry, the wake and both lines. A non-finite sample is a
         // zero: it carries nothing, and one that reached the loop would stay in it.
-        let in_l = finite_or_zero(in_l);
-        let in_r = finite_or_zero(in_r);
+        let in_l = finite_or(in_l, 0.0);
+        let in_r = finite_or(in_r, 0.0);
 
         // Off is off: the dry passes through untouched and the core is not run.
         if self.state == Fade::Parked {

@@ -140,8 +140,8 @@ at the other ([NOTES.md](NOTES.md#mix-is-a-crossfade-and-the-fade-rides-the-wet-
 - `f32` in the audio path; `f64` for the clock, the filters' coefficients and their state, where
   precision loss compounds.
 - **A non-finite sample is a zero where it enters**, at every seam: `Core::process`,
-  `Unit::process` (input and return), `Bbd::process` and both halves of the compander. Never at the
-  output; `flush` stays denormal-only ([NOTES.md](NOTES.md#why-a-non-finite-sample-is-zeroed-where-it-enters)).
+  `Unit::process` (input and return), `Bbd::process` and both halves of the compander, as
+  `mxm_dsp::guard::finite_or(x, 0.0)`. Never at the output; `flush` stays denormal-only ([NOTES.md](NOTES.md#why-a-non-finite-sample-is-zeroed-where-it-enters)).
 - Every saturator is **bounded exactly in `f32`** and **monotonic**.
 - The clock is clamped to `[CLOCK_MIN_HZ, CLOCK_MAX_HZ]` inside the DSP, not only in the parameter
   layer, which a modulation sum can drive past.

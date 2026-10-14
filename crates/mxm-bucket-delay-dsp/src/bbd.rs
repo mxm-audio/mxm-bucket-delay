@@ -26,7 +26,8 @@
 //! anything to a datasheet curve.
 
 use crate::modal::ModalLowpass;
-use crate::{Clock, FIXED_CUTOFF_HZ, TRACKING_CUTOFF_RATIO, finite_or_zero};
+use crate::{Clock, FIXED_CUTOFF_HZ, TRACKING_CUTOFF_RATIO};
+use mxm_dsp::guard::finite_or;
 use mxm_dsp::guard::flush;
 use mxm_rng::Xorshift32;
 
@@ -664,7 +665,7 @@ impl Bbd {
         let period = clock.period();
         // The anti-alias filter's state is recursive and not flushed: a non-finite sample held
         // there would be written into the line on every tick.
-        let u = finite_or_zero(input) as f64;
+        let u = finite_or(input, 0.0) as f64;
         let mut remaining = dt_host;
 
         // Walk the ticks that fall inside this host sample. The bound is arithmetic rather than a

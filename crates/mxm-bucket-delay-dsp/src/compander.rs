@@ -22,7 +22,7 @@
 //!   being the wet output (the plan's §2). Panasonic's circuits, having no compander, settle
 //!   nothing about where one goes.
 
-use crate::finite_or_zero;
+use mxm_dsp::guard::finite_or;
 use mxm_dsp::guard::flush;
 
 /// The averager's time constant, in seconds.
@@ -126,7 +126,7 @@ impl Expander {
 
     #[inline]
     pub fn process(&mut self, x: f32) -> f32 {
-        let x = finite_or_zero(x);
+        let x = finite_or(x, 0.0);
         let gain = self.average.process(x).min(EXPANDER_MAX_GAIN);
         flush(x * gain)
     }
@@ -171,7 +171,7 @@ impl Compander {
     #[inline]
     pub fn compress(&mut self, x: f32) -> f32 {
         // A detector holding a NaN reports its floor for ever, because `f32::max` ignores one.
-        let x = finite_or_zero(x);
+        let x = finite_or(x, 0.0);
         let gain = 1.0 / self.compressor_average.level();
         let y = (x * gain).clamp(-COMPRESSOR_BOUND, COMPRESSOR_BOUND);
         self.compressor_average.process(y);

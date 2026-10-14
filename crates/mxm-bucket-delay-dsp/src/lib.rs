@@ -44,17 +44,6 @@ pub use bbd::{Bbd, Line};
 pub use compander::Compander;
 pub use unit::{Controls, Core, Return, Routing, Shape, Unit, applied_feedback, effective_taps};
 
-/// A non-finite sample becomes zero; everything else passes untouched.
-///
-/// **At the entry of every seam a sample arrives through**, not at the output: a NaN that reached
-/// the line, a filter's state or a detector stays there, because every lap re-reads it, and a
-/// sanitised output would only hide a delay that had died. [`mxm_dsp::guard::flush`] deliberately does not do this,
-/// so that a NaN made *inside* the model still shows in every finiteness test.
-#[inline(always)]
-pub(crate) fn finite_or_zero(x: f32) -> f32 {
-    if x.is_finite() { x } else { 0.0 }
-}
-
 /// The fixed filters' cutoff, in Hz.
 ///
 /// **Read off the catalogue, not chosen**: both of Panasonic's reference echo circuits state
