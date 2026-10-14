@@ -32,7 +32,6 @@ use mxm_ui::space::SPACE_5;
 use mxm_ui::theme::Tokens;
 use nice_plug::context::gui::GuiContext;
 use nice_plug::prelude::*;
-use nice_plug_egui::{EguiEditorState, NiceEguiApp, create_egui_editor};
 
 use crate::params::MxmBucketDelayParams;
 use crate::telemetry::Telemetry;
@@ -52,36 +51,16 @@ pub fn create(
     params: Arc<MxmBucketDelayParams>,
     telemetry: Arc<Telemetry>,
 ) -> Option<MxmBucketDelayEditor> {
-    let state = EguiEditorState::from_size(
-        nice_plug::editor::dpi::LogicalSize::new(REFERENCE.0, REFERENCE.1),
-        1.0,
-    );
-
-    create_egui_editor(
-        state,
-        nice_plug_egui::RepaintNotifier::new(),
-        nice_plug_egui::EguiNiceSettings {
-            title: "mxm-bucket-delay".to_owned(),
-            // **Resizable**, as every editor in the collection is (`plugins/AGENTS.md`).
-            //
-            // There is no flow here and there does not need to be: this effect is **one card**, and
-            // a single card has no row to wrap into. What resizing buys it is a window a tiling
-            // manager can size, with the card taking whatever width it is given; the floor is the
-            // width below which the card's own controls stop being usable (§4.3).
-            resize_hint: ResizeHint {
-                size_constraints: nice_plug::editor::SizeConstraints::min_logical_size(
-                    nice_plug::editor::dpi::LogicalSize::new(MINIMUM.0 as f32, MINIMUM.1 as f32),
-                ),
-                ..ResizeHint::RESIZABLE
-            },
-            ..Default::default()
-        },
+    mxm_editor::create(
+        "mxm-bucket-delay",
+        REFERENCE,
+        MINIMUM,
         MxmBucketDelayApp::new(params, telemetry),
     )
 }
 
 /// The editor type the plugin exposes.
-pub type MxmBucketDelayEditor = nice_plug_egui::EguiEditor<MxmBucketDelayApp>;
+pub type MxmBucketDelayEditor = mxm_editor::Editor<MxmBucketDelayApp>;
 
 /// Where the panel records the bottom of its content, for the fit test to read.
 ///
@@ -95,8 +74,6 @@ pub(crate) fn content_bottom_id() -> egui::Id {
 pub struct MxmBucketDelayApp {
     params: Arc<MxmBucketDelayParams>,
     telemetry: Arc<Telemetry>,
-    /// Set in `build`, because that is where nice-plug hands it over.
-    gui_context: Option<GuiContext>,
     /// Open text-entry buffers, keyed by parameter id.
     text_entry: HashMap<&'static str, Option<String>>,
     /// The preset library and everything the browser needs across frames.
@@ -114,7 +91,6 @@ impl MxmBucketDelayApp {
         Self {
             params,
             telemetry,
-            gui_context: None,
             text_entry: HashMap::new(),
             presets: PresetUi::new(params_for_presets.as_ref()),
             nav: mxm_ui::navigation::State::default(),
@@ -122,22 +98,8 @@ impl MxmBucketDelayApp {
     }
 }
 
-impl NiceEguiApp for MxmBucketDelayApp {
-    fn build(
-        &mut self,
-        egui_ctx: egui::Context,
-        nice_gui_ctx: GuiContext,
-        _frame: &mut nice_plug_egui::Frame,
-    ) -> Result<(), nice_plug_egui::baseview::HandlerError> {
-        mxm_ui::shell::install(&egui_ctx);
-        self.gui_context = Some(nice_gui_ctx);
-        Ok(())
-    }
-
-    fn ui(&mut self, ui: &mut Ui, _frame: &mut nice_plug_egui::Frame) {
-        let Some(gui_context) = self.gui_context.clone() else {
-            return;
-        };
+impl mxm_editor::Panel for MxmBucketDelayApp {
+    fn ui(&mut self, ui: &mut Ui, gui_context: &GuiContext) {
         panel(
             ui,
             &self.params,
@@ -147,10 +109,6 @@ impl NiceEguiApp for MxmBucketDelayApp {
             &mut self.presets,
             &mut self.nav,
         );
-    }
-
-    fn editor_closed(&mut self) {
-        self.gui_context = None;
     }
 }
 
