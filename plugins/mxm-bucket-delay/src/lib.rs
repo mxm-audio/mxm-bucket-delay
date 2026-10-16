@@ -529,7 +529,36 @@ impl ClapPlugin for MxmBucketDelay {
     ];
 }
 
+impl Vst3Plugin for MxmBucketDelay {
+    /// Permanent, as `CLAP_ID` is: the CLAP id's hash written out, held to it by
+    /// `identity::the_vst3_class_id_is_the_clap_ids_hash`.
+    const VST3_CLASS_ID: [u8; 16] = [
+        0xdb, 0xa8, 0xdf, 0x82, 0x12, 0x70, 0xa6, 0x54, 0xe6, 0xe7, 0x51, 0x4e, 0x1c, 0x71, 0x31,
+        0x4f,
+    ];
+    const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] =
+        &[Vst3SubCategory::Fx, Vst3SubCategory::Delay];
+}
+
 nice_export_clap!(MxmBucketDelay);
+nice_export_vst3!(MxmBucketDelay);
+
+/// The plugin's identity in each format.
+#[cfg(test)]
+mod identity {
+    use super::MxmBucketDelay;
+    use mxm_plugin_test::formats;
+
+    #[test]
+    fn the_vst3_class_id_is_the_clap_ids_hash() {
+        formats::the_vst3_class_id_is_the_clap_ids_hash::<MxmBucketDelay>();
+    }
+
+    #[test]
+    fn the_vst3_categories_follow_the_clap_features() {
+        formats::the_vst3_categories_follow_the_clap_features::<MxmBucketDelay>();
+    }
+}
 
 #[cfg(test)]
 mod tests {
