@@ -220,7 +220,7 @@ fn main() {
     println!("|---|---|---|---|---|---|---|---|---|");
 
     let mut clipping: Vec<(&str, f32)> = Vec::new();
-    for (name, text) in preset::FACTORY_FILES {
+    for (name, text) in preset::FACTORY_FILES.iter() {
         let mut plugin = load(text);
         let mix = plugin.params.mix.value();
         let travel = plugin.params.feedback.value();

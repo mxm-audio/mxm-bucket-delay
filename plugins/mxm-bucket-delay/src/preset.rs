@@ -54,8 +54,13 @@ impl mxm_preset::Instrument for MxmBucketDelayParams {
         &self.preset
     }
 
-    fn factory_files(&self) -> &'static [(&'static str, &'static str)] {
+    /// The installed set, but in a unit test, which is loaded from no bundle: the repository's.
+    #[cfg(test)]
+    fn factory_files(&self) -> Vec<(String, String)> {
         FACTORY_FILES
+            .iter()
+            .map(|(name, json)| ((*name).to_owned(), (*json).to_owned()))
+            .collect()
     }
 
     fn default_missing_legacy_parameter(&self, id: &str) -> bool {
@@ -63,102 +68,22 @@ impl mxm_preset::Instrument for MxmBucketDelayParams {
     }
 }
 
-/// The factory set, compiled in. Init is not one of them: Init is the plain echo the plugin opens
-/// at, and each of these is a thing the device can do that the plain echo does not show.
-pub const FACTORY_FILES: &[(&str, &str)] = &[
-    ("Slapback", include_str!("../presets/slapback.json")),
-    ("Tape slap", include_str!("../presets/tape-slap.json")),
-    ("Long echo", include_str!("../presets/long-echo.json")),
-    ("Dub", include_str!("../presets/dub.json")),
-    ("Dark repeats", include_str!("../presets/dark-repeats.json")),
-    (
-        "Bright repeats",
-        include_str!("../presets/bright-repeats.json"),
-    ),
-    ("Runaway", include_str!("../presets/runaway.json")),
-    ("Quarter note", include_str!("../presets/quarter-note.json")),
-    (
-        "Dotted eighth",
-        include_str!("../presets/dotted-eighth.json"),
-    ),
-    ("Triplet echo", include_str!("../presets/triplet-echo.json")),
-    (
-        "Sixteenth stutter",
-        include_str!("../presets/sixteenth-stutter.json"),
-    ),
-    ("Half note", include_str!("../presets/half-note.json")),
-    (
-        "Reverberation",
-        include_str!("../presets/reverberation.json"),
-    ),
-    ("Chamber", include_str!("../presets/chamber.json")),
-    ("Hall", include_str!("../presets/hall.json")),
-    ("Bloom", include_str!("../presets/bloom.json")),
-    ("Dark room", include_str!("../presets/dark-room.json")),
-    ("Cavern", include_str!("../presets/cavern.json")),
-    (
-        "Close ambience",
-        include_str!("../presets/close-ambience.json"),
-    ),
-    (
-        "Drifting wash",
-        include_str!("../presets/drifting-wash.json"),
-    ),
-    ("Wide bloom", include_str!("../presets/wide-bloom.json")),
-    (
-        "Tight cluster",
-        include_str!("../presets/tight-cluster.json"),
-    ),
-    ("Two tap", include_str!("../presets/two-tap.json")),
-    ("Gallop", include_str!("../presets/gallop.json")),
-    ("Scatter", include_str!("../presets/scatter.json")),
-    (
-        "Three against two",
-        include_str!("../presets/three-against-two.json"),
-    ),
-    ("Backbeat", include_str!("../presets/backbeat.json")),
-    ("Wide scatter", include_str!("../presets/wide-scatter.json")),
-    ("Comb rhythm", include_str!("../presets/comb-rhythm.json")),
-    ("Chorus", include_str!("../presets/chorus.json")),
-    ("Vibrato", include_str!("../presets/vibrato.json")),
-    ("Deep flange", include_str!("../presets/deep-flange.json")),
-    ("Seasick", include_str!("../presets/seasick.json")),
-    ("Warble tape", include_str!("../presets/warble-tape.json")),
-    ("Slow drift", include_str!("../presets/slow-drift.json")),
-    (
-        "Wow and flutter",
-        include_str!("../presets/wow-and-flutter.json"),
-    ),
-    (
-        "Detune double",
-        include_str!("../presets/detune-double.json"),
-    ),
-    (
-        "Reverse swell",
-        include_str!("../presets/reverse-swell.json"),
-    ),
-    ("Reverse stab", include_str!("../presets/reverse-stab.json")),
-    (
-        "Backwards wash",
-        include_str!("../presets/backwards-wash.json"),
-    ),
-    (
-        "Reverse rhythm",
-        include_str!("../presets/reverse-rhythm.json"),
-    ),
-    ("Below spec", include_str!("../presets/below-spec.json")),
-    ("Gritty", include_str!("../presets/gritty.json")),
-    ("Starved", include_str!("../presets/starved.json")),
-    ("Lo-fi short", include_str!("../presets/lo-fi-short.json")),
-    ("Singing line", include_str!("../presets/singing-line.json")),
-    ("Noise floor", include_str!("../presets/noise-floor.json")),
-    ("Ping-pong", include_str!("../presets/ping-pong.json")),
-    (
-        "Wide ping-pong",
-        include_str!("../presets/wide-ping-pong.json"),
-    ),
-    ("Mono tight", include_str!("../presets/mono-tight.json")),
-];
+/// The factory set as it ships, `(name, json)` in its order: the repository's `presets/`, which
+/// is installed beside the plugin and read there (`mxm_preset::installed_factory_dir`). For the
+/// tests, the integration tests and the audits, which are loaded from no bundle; the plugin itself
+/// never reads it.
+pub static FACTORY_FILES: std::sync::LazyLock<Vec<(&'static str, &'static str)>> =
+    std::sync::LazyLock::new(|| {
+        let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("presets");
+        mxm_preset::read_factory_dir(&folder)
+            .into_iter()
+            .map(|(file, json)| {
+                let name = mxm_preset::Preset::parse(&json, crate::CLAP_ID)
+                    .map_or(file, |preset| preset.name);
+                (&*String::leak(name), &*String::leak(json))
+            })
+            .collect()
+    });
 
 #[cfg(test)]
 mod tests {
@@ -255,7 +180,7 @@ mod tests {
             FACTORY_FILES.len() + 1,
             "a factory file failed to parse"
         );
-        for (name, _) in FACTORY_FILES {
+        for (name, _) in FACTORY_FILES.iter() {
             assert!(
                 presets.iter().any(|p| p.name == *name),
                 "{name} is not in the loaded set"
@@ -282,7 +207,7 @@ mod tests {
     #[test]
     fn every_preset_name_is_its_own() {
         let mut seen = std::collections::HashSet::new();
-        for (name, _) in FACTORY_FILES {
+        for (name, _) in FACTORY_FILES.iter() {
             assert!(
                 seen.insert(*name),
                 "{name} appears twice in the factory bank"

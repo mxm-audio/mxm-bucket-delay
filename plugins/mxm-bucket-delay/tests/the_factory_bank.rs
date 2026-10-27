@@ -126,7 +126,7 @@ fn held_note(seconds: f32) -> Vec<f32> {
 #[test]
 fn no_factory_preset_clips_on_an_ordinary_note() {
     let input = held_note(1.0);
-    for (name, text) in preset::FACTORY_FILES {
+    for (name, text) in preset::FACTORY_FILES.iter() {
         let mut plugin = load(text);
         let out = run(&mut plugin, &input);
         assert!(
@@ -147,7 +147,7 @@ fn no_factory_preset_clips_on_an_ordinary_note() {
 #[test]
 fn every_factory_preset_is_audibly_different_from_the_dry() {
     let input = held_note(1.0);
-    for (name, text) in preset::FACTORY_FILES {
+    for (name, text) in preset::FACTORY_FILES.iter() {
         let wet = run(&mut load(text), &input);
 
         // The same preset with the wet turned all the way down: the dry it would have passed.
