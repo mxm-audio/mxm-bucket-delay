@@ -122,6 +122,12 @@ at the other ([NOTES.md](NOTES.md#mix-is-a-crossfade-and-the-fade-rides-the-wet-
   override (`cargo tree -e normal,build`). `[dev-dependencies]` holds only **`mxm-measure`**; `C64`
   is written here ([NOTES.md](NOTES.md#dependencies-two-at-runtime-and-no-framework-types)).
 - No `nice_plug::` anywhere; every public function takes plain values and a sample rate.
+- **A second user: `mxm-fx-bucket-verb`** (private) depends on this crate for its two lines
+  (`Bbd`, `Line`, `Clock`, `FilterMode`, `Return`), as it is. A change here changes that reverb too,
+  so it is heard on both before it lands.
+- **`test-hooks` is test-only**: `Bbd::silence_noise`, for that reverb's noiseless twin renders,
+  enabled through its `[dev-dependencies]` alone. No shipped build, this repository's included,
+  compiles it.
 
 ## Realtime rules
 

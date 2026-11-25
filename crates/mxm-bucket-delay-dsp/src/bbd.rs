@@ -706,6 +706,17 @@ impl Bbd {
     pub fn filter_magnitude(&self, hz: f64) -> f64 {
         self.anti_alias.magnitude(hz) * self.recon_mix.magnitude(hz)
     }
+
+    /// **Test-only**: switch the chip's noise off, until the next [`Bbd::set_line`], which sets it
+    /// from the part's figure again. A render beside its noiseless twin shows what is signal and
+    /// what is the chip's floor, which is how `mxm-fx-bucket-verb` calibrates when its tail has
+    /// fallen into the floor. Behind the `test-hooks` feature, which no shipped build enables: that
+    /// crate takes it through its `[dev-dependencies]` alone, so this build never compiles it.
+    #[cfg(feature = "test-hooks")]
+    pub fn silence_noise(&mut self) {
+        self.noise_level = 0.0;
+        self.noise_state = 0.0;
+    }
 }
 
 #[cfg(test)]
