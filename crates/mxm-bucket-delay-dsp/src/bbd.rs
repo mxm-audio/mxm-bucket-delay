@@ -437,7 +437,7 @@ struct Stepping {
     /// `E(until_tick)`, carried from the last sample; `None` until anchored, after the poles move
     /// and when recurrence is off.
     sliver: Option<[C64; MAX_MODES]>,
-    /// Host samples since `sliver` was last computed directly.
+    /// Samples the recurrence has run since `sliver` was last computed directly.
     since_anchor: u32,
     /// Off only in the tests that compare it with the exact stepping.
     recurrence: bool,
@@ -799,7 +799,11 @@ impl Bbd {
             self.stepping.sliver = Some(e);
             self.stepping.since_anchor = 0;
         }
-        self.stepping.since_anchor += 1;
+        // Counted only while the recurrence runs, so it stays under `ANCHOR_EVERY`: a cutoff moving
+        // every sample (`Tracking` under a moving clock) never runs it up.
+        if still {
+            self.stepping.since_anchor += 1;
+        }
         let carried = if still { self.stepping.sliver } else { None };
         // The product of the propagators of the steps taken so far, and that of the period the
         // next sample's sliver comes out of.
@@ -1410,6 +1414,7 @@ mod tests {
             (Line::S1024, 0.0127, 44_100.0),
             (Line::S3328, 0.050, 48_000.0),
             (Line::S4096, 0.250, 96_000.0),
+            (Line::S8192, 0.400, 48_000.0),
         ] {
             for mode in [FilterMode::Tracking, FilterMode::Fixed] {
                 let clock = Clock::for_delay(line.stages(), delay_s);
@@ -1438,6 +1443,34 @@ mod tests {
         let (_, identical) =
             stepped_both_ways(Line::S3328, FilterMode::Tracking, 48_000.0, wobbling);
         assert!(identical);
+    }
+
+    /// **The anchor's count stays bounded**: it counts only the samples the recurrence runs, so a
+    /// cutoff that moves every sample, for as long as a host runs, never overflows it; and once the
+    /// cutoff holds still the next sample anchors and starts the count again.
+    #[test]
+    fn a_moving_cutoff_never_runs_the_anchor_count_up() {
+        let mut bbd = Bbd::new(Line::S3328, 7);
+        bbd.set_filter_mode(FilterMode::Tracking);
+        open_taps(&mut bbd);
+        bbd.stepping.since_anchor = u32::MAX;
+        let dt = 1.0 / 48_000.0;
+        for i in 0..1_000 {
+            let clock = Clock::from_hz(40_000.0 * (1.0 + 0.05 * (i as f64 * 1e-3).sin()));
+            bbd.process(0.1, clock, dt, true);
+        }
+        assert_eq!(
+            bbd.stepping.since_anchor,
+            u32::MAX,
+            "counted while the cutoff moved"
+        );
+        for _ in 0..2 {
+            bbd.process(0.1, Clock::from_hz(40_000.0), dt, true);
+        }
+        assert_eq!(
+            bbd.stepping.since_anchor, 1,
+            "anchored once the cutoff held still"
+        );
     }
 
     /// **One step's propagators serve every filter that shares the poles**: the anti-alias

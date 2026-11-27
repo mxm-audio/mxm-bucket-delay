@@ -120,9 +120,13 @@ from its own exponentials, bit-identical to the stepping before the recurrence
 - In the device as built, about 2.7× faster; the reverb's costliest room went from 23.7 % to 9.0 % of
   a core at 96 kHz.
 - `the_recurrence_is_the_exact_stepping_to_rounding` holds the `f32` outputs within 120 dB of the
-  exact stepping's, at three host rates, both filter modes, clocks from three ticks a sample to one
-  in five, and a moving clock under `Fixed`. `a_shared_step_is_each_filters_own` holds a filter
-  advanced by a shared step to the filter advancing itself, to the bit.
+  exact stepping's, on all four lines, at three host rates, both filter modes, clocks from three
+  ticks a sample to one in five, and a moving clock under `Fixed`. `a_shared_step_is_each_filters_own`
+  holds a filter advanced by a shared step to the filter advancing itself, to the bit.
+- **The anchor's count runs only with the recurrence**, so it stays under `ANCHOR_EVERY`: counted
+  every sample, a cutoff moving every sample would have run it past `u32::MAX` after about 12 hours
+  at 96 kHz, a panic where overflow is checked (`a_moving_cutoff_never_runs_the_anchor_count_up`,
+  which fails with the old count; found by review, 2026-11-27).
 
 ## The loop's takeoff and return nodes are read off the circuit
 
