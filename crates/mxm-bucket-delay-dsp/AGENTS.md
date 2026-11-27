@@ -65,6 +65,14 @@ the pole placement is a Butterworth alignment, **chosen** ([NOTES.md](NOTES.md#t
 that resolves the capacitor designators, or a swept measurement of a real one, would replace the
 alignment with the circuit's own.
 
+## The filters are stepped once, by recurrence
+
+- **One `Step` serves all three filters**: the anti-alias filter's poles are the reconstruction
+  chain's first three, a `debug_assert` in `Bbd::process` holds it, and a redesign of either must
+  keep it. While the poles hold still, each host sample's propagators come **by recurrence**
+  (`Stepping`), re-anchored every `ANCHOR_EVERY` samples; a sample whose cutoff moves is stepped
+  exactly, as before, to the bit ([NOTES.md](NOTES.md#the-filters-stepping-shared-and-by-recurrence)).
+
 ## The loop
 
 - **Takeoff after reconstruction, return at the input summing node ahead of the anti-alias
@@ -178,6 +186,7 @@ Properties the tests must keep asserting, because each regresses silently:
   the filters' own group delay
 - turning Time bends pitch, in the right direction
 - the sample-and-hold's sinc, measured with the filters divided out analytically
+- the recurrence is the exact stepping to rounding, and a moving cutoff is stepped as before, bit for bit
 - each line's distortion is its own catalogue figure, and the noise floors are ordered
 - the bias trimmer is a U with its minimum at the centre, three to five times at the ends
 - silence in gives **exactly** zero out, and a finite tail reaches exact zero

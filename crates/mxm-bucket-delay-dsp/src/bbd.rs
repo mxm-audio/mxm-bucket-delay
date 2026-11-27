@@ -25,7 +25,7 @@
 //! and could not fully explain it; the hold accounts for most of it, for free, without fitting
 //! anything to a datasheet curve.
 
-use crate::modal::ModalLowpass;
+use crate::modal::{C64, MAX_MODES, ModalLowpass, Step};
 use crate::{Clock, FIXED_CUTOFF_HZ, TRACKING_CUTOFF_RATIO};
 use mxm_dsp::guard::finite_or;
 use mxm_dsp::guard::flush;
@@ -395,6 +395,116 @@ pub enum FilterMode {
     Tracking,
 }
 
+/// How often the recurrence's carried propagator is recomputed directly, in host samples: its
+/// rounding then never walks far. **Chosen**: at 48 kHz once in 85 ms, a cost no meter shows, and
+/// the drift over that many products stays under `f64`'s own rounding of a direct exponential
+/// (`the_recurrence_is_the_exact_stepping_to_rounding`).
+const ANCHOR_EVERY: u32 = 4096;
+
+/// **How the device's filters are stepped**: one set of propagators for all three ([`Step`]), and,
+/// while their poles hold still, each host sample's propagators **by recurrence** rather than by
+/// exponentials.
+///
+/// The steps inside one host sample are not independent. They are the sliver up to the first tick,
+/// whole clock periods, and what is left after the last tick, and together they make the host's
+/// period; the next sample's sliver is what was left of the period the last tick started. So with
+/// `E(Δ) = e^{pΔ}`:
+///
+/// ```text
+///   E(rest)        = E(host period) / (E(sliver) · E(clock period)^(ticks − 1))
+///   E(next sliver) = E(period the last tick started) / E(rest)
+/// ```
+///
+/// Exact in real arithmetic, and in `f64` the exact stepping to its rounding: a few multiplies and
+/// one reciprocal a pole where each step cost an exponential, a sine and a cosine. The clock
+/// period's and the host period's propagators are computed once while they last; the sliver's is
+/// carried, and recomputed directly every [`ANCHOR_EVERY`] samples and whenever the poles move. A
+/// sample in which the cutoff moves (`Tracking` under a moving clock) is stepped exactly.
+#[derive(Debug, Clone)]
+struct Stepping {
+    /// The cutoff the poles below are for (`NaN` before the first sample).
+    cutoff: f64,
+    /// The reconstruction chain's poles, which the anti-alias filter's are the first three of, and
+    /// their reciprocals.
+    poles: [C64; MAX_MODES],
+    inverse: [C64; MAX_MODES],
+    /// The clock period and its step, for these poles (`NaN`: not yet computed).
+    period: f64,
+    period_step: Step,
+    /// The host's period and its propagators, for these poles.
+    host: f64,
+    host_e: [C64; MAX_MODES],
+    /// `E(until_tick)`, carried from the last sample; `None` until anchored, after the poles move
+    /// and when recurrence is off.
+    sliver: Option<[C64; MAX_MODES]>,
+    /// Host samples since `sliver` was last computed directly.
+    since_anchor: u32,
+    /// Off only in the tests that compare it with the exact stepping.
+    recurrence: bool,
+}
+
+impl Stepping {
+    fn new() -> Self {
+        Self {
+            cutoff: f64::NAN,
+            poles: [C64::real(0.0); MAX_MODES],
+            inverse: [C64::real(0.0); MAX_MODES],
+            period: f64::NAN,
+            period_step: Step::exact(&[C64::real(0.0); MAX_MODES], 0.0),
+            host: f64::NAN,
+            host_e: [C64::real(1.0); MAX_MODES],
+            sliver: None,
+            since_anchor: 0,
+            recurrence: true,
+        }
+    }
+
+    /// Take the filters' poles for this sample. Returns whether they hold still since the last, so
+    /// the recurrence may run.
+    #[inline]
+    fn poles_for(&mut self, filter: &ModalLowpass) -> bool {
+        let cutoff = filter.cutoff_hz();
+        if cutoff == self.cutoff {
+            return true;
+        }
+        self.cutoff = cutoff;
+        self.poles = *filter.poles();
+        for k in 0..MAX_MODES {
+            self.inverse[k] = if self.poles[k].norm_sq() > 0.0 {
+                self.poles[k].recip()
+            } else {
+                C64::real(0.0)
+            };
+        }
+        self.period = f64::NAN;
+        self.host = f64::NAN;
+        self.sliver = None;
+        false
+    }
+
+    /// The clock period's step, for these poles.
+    #[inline]
+    fn period_step(&mut self, period: f64) -> Step {
+        if period != self.period {
+            self.period = period;
+            self.period_step = Step::exact(&self.poles, period);
+        }
+        self.period_step
+    }
+
+    /// `E(host period)`, for these poles.
+    #[inline]
+    fn host_e(&mut self, host: f64) -> [C64; MAX_MODES] {
+        if host != self.host {
+            self.host = host;
+            for k in 0..MAX_MODES {
+                self.host_e[k] = (self.poles[k] * host).exp();
+            }
+        }
+        self.host_e
+    }
+}
+
 /// One bucket brigade device and the filters either side of it.
 ///
 /// Allocated once, at activation, at [`MAX_STAGES`]; nothing here allocates afterwards, so a `Line`
@@ -432,6 +542,8 @@ pub struct Bbd {
     bias: f32,
     drive: f32,
     filter_mode: FilterMode,
+
+    stepping: Stepping,
 }
 
 impl Bbd {
@@ -458,6 +570,7 @@ impl Bbd {
             bias: 0.0,
             drive: 0.0,
             filter_mode: FilterMode::Fixed,
+            stepping: Stepping::new(),
         };
         bbd.set_line(line);
         bbd
@@ -533,6 +646,7 @@ impl Bbd {
         self.anti_alias.reset();
         self.recon_mix.reset();
         self.recon_tail.reset();
+        self.stepping.sliver = None;
     }
 
     /// The device's distortion at the current bias: the polynomial, driven to the part's own THD
@@ -668,27 +782,95 @@ impl Bbd {
         let u = finite_or(input, 0.0) as f64;
         let mut remaining = dt_host;
 
+        // One set of propagators for all three filters (`Step`), by recurrence while the poles hold
+        // still (`Stepping`). Both are the reconstruction chain's; the anti-alias filter reads the
+        // first three.
+        let still = self.stepping.poles_for(&self.recon_mix) && self.stepping.recurrence;
+        debug_assert_eq!(
+            self.anti_alias.poles()[..3],
+            self.stepping.poles[..3],
+            "the anti-alias poles are the chain's first three"
+        );
+        if still && (self.stepping.sliver.is_none() || self.stepping.since_anchor >= ANCHOR_EVERY) {
+            let mut e = [C64::real(1.0); MAX_MODES];
+            for (k, e) in e.iter_mut().enumerate() {
+                *e = (self.stepping.poles[k] * self.until_tick).exp();
+            }
+            self.stepping.sliver = Some(e);
+            self.stepping.since_anchor = 0;
+        }
+        self.stepping.since_anchor += 1;
+        let carried = if still { self.stepping.sliver } else { None };
+        // The product of the propagators of the steps taken so far, and that of the period the
+        // next sample's sliver comes out of.
+        let mut taken = [C64::real(1.0); MAX_MODES];
+        let mut started = carried;
+        let mut ticked = false;
+
         // Walk the ticks that fall inside this host sample. The bound is arithmetic rather than a
         // hope: the clock is clamped and the host rate is not zero, so the count is finite, and the
         // guard is there for the pathological case rather than the ordinary one.
         let mut guard = 0;
         while self.until_tick < remaining && guard < 64 {
-            let step = self.until_tick;
-            self.anti_alias.advance(step, u);
-            self.recon_mix.advance(step, self.hold_mix);
-            if need_tail {
-                self.recon_tail.advance(step, self.hold_tail);
+            let dt = self.until_tick;
+            if dt > 0.0 {
+                let step = match (ticked, carried) {
+                    (true, _) => self.stepping.period_step(period),
+                    (false, Some(e)) => {
+                        Step::from_propagators(&self.stepping.poles, &self.stepping.inverse, e, dt)
+                    }
+                    (false, None) => Step::exact(&self.stepping.poles, dt),
+                };
+                self.anti_alias.advance_by(&step, u);
+                self.recon_mix.advance_by(&step, self.hold_mix);
+                if need_tail {
+                    self.recon_tail.advance_by(&step, self.hold_tail);
+                }
+                for (t, e) in taken.iter_mut().zip(step.propagators()) {
+                    *t = *t * *e;
+                }
             }
             self.tick(clock);
-            remaining -= step;
+            remaining -= dt;
             self.until_tick = period;
+            ticked = true;
+            started = carried.map(|_| *self.stepping.period_step(period).propagators());
             guard += 1;
         }
 
-        self.anti_alias.advance(remaining, u);
-        self.recon_mix.advance(remaining, self.hold_mix);
-        if need_tail {
-            self.recon_tail.advance(remaining, self.hold_tail);
+        if remaining > 0.0 {
+            let step = match carried {
+                Some(_) => {
+                    let host = self.stepping.host_e(dt_host);
+                    let mut e = [C64::real(1.0); MAX_MODES];
+                    for k in 0..MAX_MODES {
+                        e[k] = host[k] * taken[k].recip();
+                    }
+                    Step::from_propagators(
+                        &self.stepping.poles,
+                        &self.stepping.inverse,
+                        e,
+                        remaining,
+                    )
+                }
+                None => Step::exact(&self.stepping.poles, remaining),
+            };
+            self.anti_alias.advance_by(&step, u);
+            self.recon_mix.advance_by(&step, self.hold_mix);
+            if need_tail {
+                self.recon_tail.advance_by(&step, self.hold_tail);
+            }
+            // The next sliver is what is left of the period the last tick started (or of this
+            // sample's sliver, if none did).
+            self.stepping.sliver = started.map(|from| {
+                let mut e = [C64::real(1.0); MAX_MODES];
+                for k in 0..MAX_MODES {
+                    e[k] = from[k] * step.propagators()[k].recip();
+                }
+                e
+            });
+        } else {
+            self.stepping.sliver = if carried.is_some() { started } else { None };
         }
         self.until_tick -= remaining;
 
@@ -705,6 +887,13 @@ impl Bbd {
     /// measured roll-off to see the hold on its own.
     pub fn filter_magnitude(&self, hz: f64) -> f64 {
         self.anti_alias.magnitude(hz) * self.recon_mix.magnitude(hz)
+    }
+
+    /// The filters stepped exactly, every step's propagators from its own exponentials, as before
+    /// the recurrence: for the tests that hold one to the other.
+    #[cfg(test)]
+    fn step_exactly(&mut self) {
+        self.stepping.recurrence = false;
     }
 
     /// **Test-only**: switch the chip's noise off, until the next [`Bbd::set_line`], which sets it
@@ -1171,6 +1360,111 @@ mod tests {
             let (mix, tail) = bbd.process(0.0, clock, dt, true);
             assert_eq!(mix, 0.0);
             assert_eq!(tail, 0.0);
+        }
+    }
+
+    /// Two devices fed the same: one stepped by recurrence, one exactly. Returns the largest
+    /// difference of either output over its peak, and whether every sample is bit-identical.
+    fn stepped_both_ways(
+        line: Line,
+        mode: FilterMode,
+        host_hz: f64,
+        clock_at: impl Fn(usize) -> Clock,
+    ) -> (f64, bool) {
+        let mut fast = Bbd::new(line, 7);
+        fast.set_filter_mode(mode);
+        open_taps(&mut fast);
+        let mut exact = fast.clone();
+        exact.step_exactly();
+        let mut rng = Xorshift32::new(0x5eed);
+        let n = (4.0 * host_hz) as usize;
+        let (mut worst, mut peak, mut identical) = (0f64, 0f64, true);
+        for i in 0..n {
+            let x = if i < 3 * n / 4 {
+                0.5 * rng.bipolar_f32()
+            } else {
+                0.0
+            };
+            let clock = clock_at(i);
+            let a = fast.process(x, clock, 1.0 / host_hz, true);
+            let b = exact.process(x, clock, 1.0 / host_hz, true);
+            for (p, q) in [(a.0, b.0), (a.1, b.1)] {
+                worst = worst.max((p as f64 - q as f64).abs());
+                peak = peak.max(q.abs() as f64);
+                identical &= p.to_bits() == q.to_bits();
+            }
+        }
+        (worst / peak, identical)
+    }
+
+    /// **The recurrence is the exact stepping, to rounding**: every step's propagators built from
+    /// the last by multiplication, against each computed from its own exponentials, as before. At
+    /// fast and slow clocks against the host (three ticks a sample to one in five), both filter
+    /// modes, three host rates, and a clock that moves under the `Fixed` filters (the poles still,
+    /// the period not). The outputs are `f32`, so a stored sample may round the other way: the
+    /// bound is 120 dB under the peak, a few of `f32`'s own steps.
+    #[test]
+    fn the_recurrence_is_the_exact_stepping_to_rounding() {
+        for (line, delay_s, host_hz) in [
+            (Line::S1024, 0.0036, 48_000.0),
+            (Line::S1024, 0.0127, 44_100.0),
+            (Line::S3328, 0.050, 48_000.0),
+            (Line::S4096, 0.250, 96_000.0),
+        ] {
+            for mode in [FilterMode::Tracking, FilterMode::Fixed] {
+                let clock = Clock::for_delay(line.stages(), delay_s);
+                let (worst, _) = stepped_both_ways(line, mode, host_hz, |_| clock);
+                assert!(
+                    worst < 1e-6,
+                    "{line:?} {delay_s} s {mode:?} at {host_hz}: {:.1} dB",
+                    20.0 * worst.log10()
+                );
+            }
+        }
+        let wobbling = |i: usize| Clock::from_hz(40_000.0 * (1.0 + 0.05 * (i as f64 * 1e-3).sin()));
+        let (worst, _) = stepped_both_ways(Line::S3328, FilterMode::Fixed, 48_000.0, wobbling);
+        assert!(
+            worst < 1e-6,
+            "a moving clock, Fixed: {:.1} dB",
+            20.0 * worst.log10()
+        );
+    }
+
+    /// **Where the cutoff moves every sample** (`Tracking` under a moving clock) every step is
+    /// computed exactly: the stepping as it was before the recurrence, to the bit.
+    #[test]
+    fn a_moving_cutoff_is_stepped_exactly() {
+        let wobbling = |i: usize| Clock::from_hz(40_000.0 * (1.0 + 0.05 * (i as f64 * 1e-3).sin()));
+        let (_, identical) =
+            stepped_both_ways(Line::S3328, FilterMode::Tracking, 48_000.0, wobbling);
+        assert!(identical);
+    }
+
+    /// **One step's propagators serve every filter that shares the poles**: the anti-alias
+    /// filter's three are the reconstruction chain's first three, and a filter advanced by a
+    /// shared step is the filter advancing itself, to the bit.
+    #[test]
+    fn a_shared_step_is_each_filters_own() {
+        for cutoff in [2_000.0, 13_333.3, 40_000.0] {
+            let mut own_in = ModalLowpass::butterworth(&[3], cutoff);
+            let mut own_out = ModalLowpass::butterworth(&[3, 2], cutoff);
+            let (mut by_in, mut by_out) = (own_in.clone(), own_out.clone());
+            assert_eq!(own_in.poles()[..3], own_out.poles()[..3]);
+            for (i, dt) in [1e-5, 3.3e-6, 2e-8, 1.7e-5]
+                .into_iter()
+                .cycle()
+                .take(400)
+                .enumerate()
+            {
+                let u = (i as f64 * 0.37).sin();
+                own_in.advance(dt, u);
+                own_out.advance(dt, u);
+                let step = Step::exact(own_out.poles(), dt);
+                by_in.advance_by(&step, u);
+                by_out.advance_by(&step, u);
+                assert_eq!(own_in.output().to_bits(), by_in.output().to_bits());
+                assert_eq!(own_out.output().to_bits(), by_out.output().to_bits());
+            }
         }
     }
 

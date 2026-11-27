@@ -88,6 +88,42 @@ chosen**, because the sources do not settle which capacitor sits at which node �
 the standard equal-R third-order Sallen-Key, the natural assignment of the anti-alias set puts a
 real pole at 16 Hz.
 
+## The filters' stepping: shared, and by recurrence
+
+**Why.** The device's filters are advanced in steps between the clock's ticks, each step an
+exponential, a sine and a cosine per pole: about 90 % of a `Bbd`'s time went there, and
+`mxm-fx-bucket-verb` runs twelve of them (two lines and ten diffusers), its costliest room at 23.7 %
+of a core at 96 kHz (2026-11-26). Two facts remove most of it, both exact:
+
+- **The three filters share their poles.** All three run at one cutoff; the anti-alias filter's
+  third-order section is designed by the same arithmetic as the reconstruction chain's first, and
+  the two reconstruction branches are one chain. So one step's five propagators (`Step`) serve all
+  thirteen modes, where each filter computing its own cost thirteen.
+- **The steps of one host sample are not independent.** They are the sliver up to the first tick,
+  whole clock periods, and the rest after the last tick, which together make the host's period; the
+  next sample's sliver is what was left of the period the last tick started. With `E(Δ) = e^{pΔ}`,
+  `E(rest) = E(host) / (E(sliver) · E(period)^(ticks − 1))` and `E(next sliver) = E(period) / E(rest)`:
+  a few multiplies and one reciprocal a pole. `E(period)` and `E(host)` are computed once while they
+  last.
+
+**Where it stops.** The carried sliver is recomputed directly every `ANCHOR_EVERY` (4096) host
+samples, at 48 kHz once in 85 ms, so its rounding never walks far, and whenever the poles move. A
+sample whose cutoff moves (`Tracking` under a moving clock) is stepped exactly, every propagator
+from its own exponentials, bit-identical to the stepping before the recurrence
+(`a_moving_cutoff_is_stepped_exactly`).
+
+**Measured** (2026-11-26, this machine, S1024 with all filters on):
+
+- Per host sample at 48 kHz, exact against recurrence, on the prototype: 216 against 80 ns at 2.96
+  ticks a sample, 207 against 75 at 2.22, 148 against 63 at 1.15, 129 against 57 at 0.84. The
+  outputs differed by 237 dB or more under the peak in `f64`.
+- In the device as built, about 2.7× faster; the reverb's costliest room went from 23.7 % to 9.0 % of
+  a core at 96 kHz.
+- `the_recurrence_is_the_exact_stepping_to_rounding` holds the `f32` outputs within 120 dB of the
+  exact stepping's, at three host rates, both filter modes, clocks from three ticks a sample to one
+  in five, and a moving clock under `Fixed`. `a_shared_step_is_each_filters_own` holds a filter
+  advanced by a shared step to the filter advancing itself, to the bit.
+
 ## The loop's takeoff and return nodes are read off the circuit
 
 Panasonic's MN3005 echo circuit (catalogue p. 58) settles it: the `Echo Control` pot sits across the

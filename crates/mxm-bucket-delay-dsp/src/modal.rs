@@ -87,6 +87,13 @@ impl C64 {
         self.re * self.re + self.im * self.im
     }
 
+    /// `1 / z`, one real division.
+    #[inline]
+    pub fn recip(self) -> Self {
+        let d = self.norm_sq();
+        Self::new(self.re / d, -self.im / d)
+    }
+
     /// `e^z`, from the polar form of the imaginary part.
     #[inline]
     pub fn exp(self) -> Self {
@@ -159,6 +166,64 @@ impl Div for C64 {
             (self.re * o.re + self.im * o.im) / d,
             (self.im * o.re - self.re * o.im) / d,
         )
+    }
+}
+
+/// **One step's propagators**, for every pole of a set: `e^{pΔ}` and `(e^{pΔ} − 1) / p`, what
+/// [`ModalLowpass::advance`] computes for itself.
+///
+/// Computed once and handed to every filter that shares the poles ([`ModalLowpass::advance_by`]):
+/// the device's three filters run at one cutoff, the anti-alias filter's three poles are the
+/// reconstruction chain's first three (one third-order Butterworth section, designed by the same
+/// arithmetic), and the two reconstruction branches are one chain. So one step's five propagators
+/// serve all thirteen modes, where each filter computing its own costs thirteen.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Step {
+    e: [C64; MAX_MODES],
+    g: [C64; MAX_MODES],
+}
+
+impl Step {
+    /// Exact: the arithmetic [`ModalLowpass::advance`] does, for every pole.
+    #[inline]
+    pub fn exact(poles: &[C64; MAX_MODES], dt: f64) -> Self {
+        let mut step = Self {
+            e: [C64::real(1.0); MAX_MODES],
+            g: [C64::real(0.0); MAX_MODES],
+        };
+        for ((e, g), &p) in step.e.iter_mut().zip(step.g.iter_mut()).zip(poles) {
+            let z = p * dt;
+            *e = z.exp();
+            *g = z.expm1() / p;
+        }
+        step
+    }
+
+    /// From propagators built elsewhere (`e[k] = e^{p_k Δ}`, by recurrence): each input gain
+    /// `(e − 1) / p`, or the series where `Δ` is a sliver and `e − 1` would cancel its leading
+    /// digits ([`C64::expm1`]'s threshold). `inverse` is the poles' reciprocals.
+    #[inline]
+    pub fn from_propagators(
+        poles: &[C64; MAX_MODES],
+        inverse: &[C64; MAX_MODES],
+        e: [C64; MAX_MODES],
+        dt: f64,
+    ) -> Self {
+        let g = core::array::from_fn(|k| {
+            let z = poles[k] * dt;
+            if z.norm_sq() < 1e-8 {
+                z.expm1() * inverse[k]
+            } else {
+                (e[k] - C64::real(1.0)) * inverse[k]
+            }
+        });
+        Self { e, g }
+    }
+
+    /// `e^{pΔ}` for each pole.
+    #[inline]
+    pub fn propagators(&self) -> &[C64; MAX_MODES] {
+        &self.e
     }
 }
 
@@ -287,6 +352,22 @@ impl ModalLowpass {
         for k in 0..self.modes {
             self.state[k] = self.propagator[k] * self.state[k] + self.input_gain[k] * u;
         }
+    }
+
+    /// Advance by a step whose propagators were computed for **this filter's poles**, in order, by
+    /// whoever shares them ([`Step`]): the same update as [`Self::advance`], without recomputing
+    /// them. A filter of fewer modes reads the first of them.
+    #[inline]
+    pub fn advance_by(&mut self, step: &Step, u: f64) {
+        for k in 0..self.modes {
+            self.state[k] = step.e[k] * self.state[k] + step.g[k] * u;
+        }
+    }
+
+    /// The poles, in the order its sections were designed; unused entries are zero.
+    #[inline]
+    pub fn poles(&self) -> &[C64; MAX_MODES] {
+        &self.poles
     }
 
     /// The filter's output at the instant the state is currently at.
